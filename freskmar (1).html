@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Freskmar – Sistema de Inventario</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ocean:#0B4F6C;--ocean-mid:#1A7FA0;--ocean-light:#E0F4FA;
+  --aqua:#00B4D8;--aqua-light:#90E0EF;
+  --teal:#0D7377;--teal-light:#D4F1F4;
+  --amber:#E59C2B;--amber-light:#FEF3DC;
+  --green:#2D8C5F;--green-light:#D4EEE3;
+  --red:#C0392B;--red-light:#FDECEA;
+  --coral:#E56B4E;
+  --gray:#6B7280;--gray-light:#F3F4F6;
+  --border:#E2E8F0;
+  --text:#1A202C;--text-muted:#6B7280;
+  --white:#FFFFFF;--bg:#F0F7FA;
+  --sidebar-w:224px;
+  --radius:8px;--radius-lg:14px;
+  --shadow:0 2px 8px rgba(0,0,0,.08);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px}
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,var(--ocean) 0%,#072d40 100%);display:flex;align-items:center;justify-content:center;z-index:2000}
+.login-box{background:#fff;border-radius:20px;padding:36px 40px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo h1{font-family:'Space Grotesk',sans-serif;font-size:28px;color:var(--ocean);font-weight:600}
+.login-logo p{font-size:12px;color:var(--text-muted);margin-top:4px}
+.login-err{background:var(--red-light);color:var(--red);font-size:12px;padding:8px 12px;border-radius:6px;margin-bottom:12px;display:none}
+#sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--ocean);display:flex;flex-direction:column;position:fixed;left:0;top:0;z-index:100}
+.sb-logo{padding:18px 16px 12px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-logo h1{font-family:'Space Grotesk',sans-serif;font-size:19px;color:#fff;font-weight:600}
+.sb-logo span{font-size:11px;color:var(--aqua-light);display:block;margin-top:2px}
+.sb-nav{flex:1;padding:10px 0;overflow-y:auto}
+.sb-item{display:flex;align-items:center;gap:9px;padding:9px 16px;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;font-size:13px;border-left:3px solid transparent}
+.sb-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.sb-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:var(--aqua)}
+.sb-item .ic{font-size:15px;width:18px;text-align:center}
+.sb-sec{font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.8px;padding:8px 16px 3px;margin-top:4px}
+.sb-bot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)}
+.sb-user{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sb-av{width:30px;height:30px;border-radius:50%;background:var(--aqua);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--ocean);flex-shrink:0}
+.sb-uname{font-size:12px;color:#fff;font-weight:500}
+.sb-urole{font-size:10px;color:rgba(255,255,255,.4)}
+.sb-out{font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;text-decoration:underline}
+#main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar h2{font-size:16px;font-weight:600;color:var(--ocean)}
+.topbar-r{display:flex;align-items:center;gap:8px}
+.badge-al{background:#FDECEA;color:var(--coral);font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;cursor:pointer;border:none}
+#content{padding:20px 24px;flex:1}
+.card{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--border);padding:18px 20px;box-shadow:var(--shadow)}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ct{font-size:14px;font-weight:600;color:var(--ocean)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.metric{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--border);padding:14px 16px;box-shadow:var(--shadow)}
+.ml{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.mv{font-size:20px;font-weight:600;line-height:1.2}
+.ms{font-size:11px;color:var(--text-muted);margin-top:3px}
+.metric.good .mv{color:var(--green)}
+.metric.warn .mv{color:var(--amber)}
+.metric.bad .mv{color:var(--red)}
+.metric.info .mv{color:var(--ocean-mid)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--white);color:var(--text);cursor:pointer;font-size:12px;font-family:inherit;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--gray-light)}
+.bp{background:var(--ocean);color:#fff;border-color:var(--ocean)}.bp:hover{background:var(--ocean-mid)}
+.bs{padding:4px 9px;font-size:11px}
+.bd{background:var(--red-light);color:var(--red);border-color:transparent}
+.bg{background:var(--green-light);color:var(--green);border-color:transparent}
+.bw{background:var(--amber-light);color:var(--amber);border-color:transparent}
+.bt{background:var(--teal-light);color:var(--teal);border-color:transparent}
+.tw{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--gray-light);padding:9px 12px;text-align:left;font-weight:500;color:var(--text-muted);font-size:11px;white-space:nowrap;border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbfc}
+.fg{margin-bottom:12px}
+.fl{display:block;font-size:11px;font-weight:500;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px}
+.fc{width:100%;padding:7px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:inherit;color:var(--text);background:var(--white);transition:border .15s}
+.fc:focus{outline:none;border-color:var(--aqua)}
+select.fc{cursor:pointer}
+.fr{display:grid;gap:10px}
+.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--white);border-radius:var(--radius-lg);width:94%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.mlg{max-width:680px}
+.mh{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2}
+.mt{font-size:15px;font-weight:600;color:var(--ocean)}
+.mx{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-muted)}
+.mb{padding:18px}
+.mf{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:#fff}
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:16px}
+.tab{padding:7px 14px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab.active{color:var(--ocean);border-bottom-color:var(--ocean)}
+.chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.cbl{background:var(--ocean-light);color:var(--ocean)}
+.cgn{background:var(--green-light);color:var(--green)}
+.cam{background:var(--amber-light);color:var(--amber)}
+.crd{background:var(--red-light);color:var(--red)}
+.cgr{background:var(--gray-light);color:var(--gray)}
+.ctl{background:var(--teal-light);color:var(--teal)}
+.alert{padding:10px 14px;border-radius:var(--radius);font-size:12.5px;margin-bottom:10px}
+.ai{background:var(--ocean-light);border:1px solid var(--aqua-light);color:var(--ocean)}
+.as{background:var(--green-light);border:1px solid #9ddfc3;color:var(--green)}
+.aw{background:var(--amber-light);border:1px solid #f8d88a;color:#7c5800}
+.ar{background:var(--red-light);border:1px solid #f5a8a0;color:var(--red)}
+.cb{font-family:'Space Grotesk',monospace;font-size:11px;background:var(--ocean-light);color:var(--ocean);padding:2px 6px;border-radius:4px;letter-spacing:.3px}
+/* INVENTARIO EXPANDIBLE */
+.inv-r{cursor:pointer}
+.inv-r:hover td{background:var(--ocean-light)!important}
+.inv-r td:first-child{position:relative;padding-left:24px}
+.inv-r td:first-child::before{content:'▶';font-size:9px;color:var(--ocean-mid);position:absolute;left:8px;top:50%;transform:translateY(-50%)}
+.inv-r.exp td:first-child::before{content:'▼'}
+/* PRECIO SUGERIDO */
+.ps{background:var(--green-light);border:1px solid #9ddfc3;border-radius:6px;padding:6px 10px;font-size:12px;color:var(--green);margin:6px 0 10px}
+.ps strong{font-size:14px}
+/* GANANCIA BAR */
+.gb{height:7px;background:var(--gray-light);border-radius:4px;margin-top:4px;overflow:hidden}
+.gf{height:100%;border-radius:4px;transition:width .5s}
+/* COTIZACION */
+@media print{
+  #sidebar,#main>.topbar,.np{display:none!important}
+  #cotprint{display:block!important}
+  body{background:#fff}
+}
+#cotprint{display:none;position:fixed;inset:0;background:#fff;z-index:9999;padding:36px;overflow:auto}
+.coth{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--ocean)}
+.cotl{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--ocean)}
+.coti{font-size:12px;color:var(--text-muted);text-align:right;line-height:1.7}
+.cottb{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+.cottb th{background:var(--ocean);color:#fff;padding:8px 12px;text-align:left}
+.cottb td{padding:8px 12px;border-bottom:1px solid var(--border)}
+.cotf{margin-top:20px;font-size:11px;color:var(--text-muted);text-align:center;border-top:1px solid var(--border);padding-top:10px}
+/* MISC */
+.sp{margin-bottom:16px}
+.fb{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.empty{text-align:center;padding:32px 20px;color:var(--text-muted)}
+.empty .ic2{font-size:32px;margin-bottom:8px;opacity:.4}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.page{animation:fi .18s ease}
+@media(max-width:960px){.g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo"><h1>🐟 Freskmar</h1><p>Sistema de Inventario y Ventas</p></div>
+    <div class="login-err" id="lerr">Usuario o contraseña incorrectos</div>
+    <div class="fg"><label class="fl">Usuario</label><input class="fc" id="luser" autocomplete="username" placeholder="usuario"></div>
+    <div class="fg"><label class="fl">Contraseña</label><input class="fc" id="lpass" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn bp" style="width:100%;justify-content:center;padding:10px;margin-top:4px" onclick="doLogin()">Ingresar</button>
+  </div>
+</div>
+
+<nav id="sidebar" style="display:none">
+  <div class="sb-logo"><h1>🐟 Freskmar</h1><span>Inventario & Ventas</span></div>
+  <div class="sb-nav" id="sbnav"></div>
+  <div class="sb-bot">
+    <div class="sb-user">
+      <div class="sb-av" id="sbav">?</div>
+      <div><div class="sb-uname" id="sbuname">—</div><div class="sb-urole" id="sbrole">—</div></div>
+    </div>
+    <span class="sb-out" onclick="doLogout()">Cerrar sesión</span>
+  </div>
+</nav>
+
+<div id="main" style="display:none">
+  <div class="topbar">
+    <h2 id="ptitle">Dashboard</h2>
+    <div class="topbar-r">
+      <button id="albtn" class="badge-al" onclick="navigate('alertas')" style="display:none">⚠ 0</button>
+      <button class="btn bs" onclick="openCfg()">⚙ JSONbin</button>
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+
+<div class="overlay" id="movl">
+  <div class="modal" id="mbox">
+    <div class="mh"><span class="mt" id="mtit">—</span><button class="mx" onclick="closeModal()">✕</button></div>
+    <div class="mb" id="mbody"></div>
+    <div class="mf" id="mfoot"></div>
+  </div>
+</div>
+
+<div id="cotprint">
+  <div id="cotcont"></div>
+  <div style="margin-top:20px;text-align:center" class="np">
+    <button class="btn bp" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+    <button class="btn" onclick="document.getElementById('cotprint').style.display='none'" style="margin-left:8px">✕ Cerrar</button>
+  </div>
+</div>
+
+<script>
+let DB={
+  usuarios:[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'admin123',rol:'admin'}],
+  proveedores:[],productos:[],clientes:[],compras:[],lotes:[],ventas:[],abonos:[],
+  config:{jsonbinKey:'',jsonbinBin:''}
+};
+let SES=null;
+
+async function saveDB(){
+  localStorage.setItem('freskmar2',JSON.stringify(DB));
+  const c=DB.config;
+  if(!c.jsonbinKey||!c.jsonbinBin)return;
+  try{await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}`,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':c.jsonbinKey},body:JSON.stringify(DB)});}catch(e){}
+}
+async function loadDB(){
+  const loc=localStorage.getItem('freskmar2');
+  if(loc){try{const p=JSON.parse(loc);if(p?.usuarios)DB=p;}catch(e){}}
+  if(!DB.usuarios?.length)DB.usuarios=[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'admin123',rol:'admin'}];
+  const c=DB.config;
+  if(!c?.jsonbinKey||!c?.jsonbinBin)return;
+  try{const r=await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}/latest`,{headers:{'X-Master-Key':c.jsonbinKey}});if(r.ok){const j=await r.json();if(j.record?.usuarios)DB=j.record;}}catch(e){}
+}
+
+function doLogin(){
+  const u=document.getElementById('luser').value.trim();
+  const p=document.getElementById('lpass').value;
+  const f=DB.usuarios.find(x=>x.usuario===u&&x.pass===p);
+  document.getElementById('lerr').style.display=f?'none':'';
+  if(!f)return;
+  SES=f;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('sidebar').style.display='flex';
+  document.getElementById('main').style.display='flex';
+  document.getElementById('sbav').textContent=(f.nombre||'U')[0].toUpperCase();
+  document.getElementById('sbuname').textContent=f.nombre;
+  document.getElementById('sbrole').textContent=f.rol==='admin'?'Administrador':'Vendedor';
+  buildNav();navigate('dashboard');
+}
+function doLogout(){
+  SES=null;
+  document.getElementById('sidebar').style.display='none';
+  document.getElementById('main').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('luser').value='';document.getElementById('lpass').value='';
+}
+function isAdmin(){return SES?.rol==='admin';}
+
+function buildNav(){
+  const a=isAdmin();
+  document.getElementById('sbnav').innerHTML=`
+    <div class="sb-item active" onclick="navigate('dashboard')"><span class="ic">📊</span>Dashboard</div>
+    <div class="sb-sec">Operaciones</div>
+    <div class="sb-item" onclick="navigate('inventario')"><span class="ic">📦</span>Inventario</div>
+    <div class="sb-item" onclick="navigate('ventas')"><span class="ic">💰</span>Ventas</div>
+    <div class="sb-item" onclick="navigate('compras')"><span class="ic">🛒</span>Compras</div>
+    <div class="sb-item" onclick="navigate('creditos')"><span class="ic">📋</span>Créditos</div>
+    ${a?`<div class="sb-sec">Catálogos</div>
+    <div class="sb-item" onclick="navigate('proveedores')"><span class="ic">🏭</span>Proveedores</div>
+    <div class="sb-item" onclick="navigate('productos')"><span class="ic">🐟</span>Productos</div>
+    <div class="sb-item" onclick="navigate('clientes')"><span class="ic">👥</span>Clientes</div>
+    <div class="sb-sec">Admin</div>
+    <div class="sb-item" onclick="navigate('usuarios')"><span class="ic">🔐</span>Usuarios</div>
+    <div class="sb-item" onclick="navigate('alertas')"><span class="ic">🔔</span>Alertas</div>`
+    :`<div class="sb-item" onclick="navigate('alertas')"><span class="ic">🔔</span>Alertas</div>`}`;
+}
+
+const TITLES={dashboard:'Dashboard',inventario:'Inventario',ventas:'Ventas',compras:'Compras / Lotes',creditos:'Créditos',proveedores:'Proveedores',productos:'Productos',clientes:'Clientes',usuarios:'Usuarios',alertas:'Alertas'};
+const PG={};
+function navigate(p){
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i=>{if(i.getAttribute('onclick')?.includes(`'${p}'`))i.classList.add('active');});
+  document.getElementById('ptitle').textContent=TITLES[p]||p;
+  const c=document.getElementById('content');c.innerHTML='';
+  const d=document.createElement('div');d.className='page';c.appendChild(d);
+  PG[p]&&PG[p](d);checkAl();
+}
+
+function openModal(t,b,f,sz=''){
+  document.getElementById('mtit').textContent=t;
+  document.getElementById('mbody').innerHTML=b;
+  document.getElementById('mfoot').innerHTML=f||'';
+  document.getElementById('mbox').className='modal'+(sz?' '+sz:'');
+  document.getElementById('movl').classList.add('open');
+}
+function closeModal(){document.getElementById('movl').classList.remove('open')}
+
+function toast(m,t='ok'){
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;bottom:20px;right:20px;background:${t==='ok'?'#2D8C5F':'#C0392B'};color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.18)`;
+  el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2600);
+}
+
+function uid(){return '_'+Math.random().toString(36).substr(2,9)}
+function fm(n,d=2){return Number(n||0).toFixed(d)}
+function fm$(n){return '$'+Number(n||0).toFixed(2)}
+function td(){return new Date().toISOString().split('T')[0]}
+function dl(dt){if(!dt)return 9999;return Math.ceil((new Date(dt)-new Date())/864e5)}
+function stk(pid){return DB.lotes.filter(l=>l.productoId===pid&&l.activo).reduce((s,l)=>s+(l.lbsDisponibles||0),0)}
+function cprom(pid){
+  const ls=DB.lotes.filter(l=>l.productoId===pid&&l.activo&&l.lbsDisponibles>0);
+  const tl=ls.reduce((s,l)=>s+l.lbsDisponibles,0);
+  if(!tl)return 0;
+  return ls.reduce((s,l)=>s+(l.lbsDisponibles*l.costoLb),0)/tl;
+}
+function nomen(prov,nom){
+  const ini=(prov.codigo||prov.nombre.split(' ').map(w=>w[0]||'').join('')).toUpperCase().slice(0,3);
+  const pr=nom.toUpperCase().split(/[\s\/\-&]+/).map(w=>w.replace(/[^A-Z0-9]/g,'').slice(0,3)).filter(Boolean).join('-').slice(0,14);
+  return `${ini}-${pr}`;
+}
+function checkAl(){
+  let n=0;
+  DB.lotes.filter(l=>l.activo).forEach(l=>{if(l.vencimiento&&dl(l.vencimiento)<=30)n++;});
+  const b=document.getElementById('albtn');
+  if(b){b.style.display=n?'':'none';b.textContent=`⚠ ${n}`;}
+}
+
+function openCfg(){
+  openModal('Configuración JSONbin',`
+    <div class="alert ai">Configure JSONbin.io para sincronizar entre dispositivos.</div>
+    <div class="fg"><label class="fl">Master Key</label><input class="fc" id="cfk" value="${DB.config.jsonbinKey||''}"></div>
+    <div class="fg"><label class="fl">Bin ID</label><input class="fc" id="cfb" value="${DB.config.jsonbinBin||''}"></div>
+  `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+     <button class="btn bp" onclick="(async()=>{DB.config.jsonbinKey=document.getElementById('cfk').value.trim();DB.config.jsonbinBin=document.getElementById('cfb').value.trim();await saveDB();closeModal();toast('Configuración guardada');})()">Guardar</button>`);
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+PG.dashboard=function(el){
+  const mes=td().slice(0,7);
+  const vtm=DB.ventas.filter(v=>v.fecha?.startsWith(mes)).reduce((s,v)=>s+(v.total||0),0);
+  let cm=0;DB.compras.filter(c=>c.fecha?.startsWith(mes)).forEach(c=>{cm+=c.totalCosto||0;(c.costosAdicionales||[]).forEach(x=>cm+=x.monto||0)});
+  const gm=vtm-cm;
+  const inv=DB.lotes.filter(l=>l.activo).reduce((s,l)=>s+(l.lbsDisponibles||0)*(l.costoLb||0),0);
+  const cp=DB.ventas.filter(v=>v.tipo==='credito').reduce((s,v)=>s+(v.saldo||0),0);
+  let ge=0;DB.lotes.filter(l=>l.activo&&l.lbsDisponibles>0).forEach(l=>{const p=DB.productos.find(x=>x.id===l.productoId);if(p)ge+=l.lbsDisponibles*((p.precioVenta||0)-(l.costoLb||0))});
+
+  // ganancias por producto
+  const gp={};
+  DB.ventas.forEach(v=>{(v.items||[]).forEach(it=>{
+    if(!gp[it.productoId])gp[it.productoId]={nom:it.nombre,cod:it.codigo,vt:0,lbs:0,costo:0};
+    gp[it.productoId].vt+=it.subtotal||0;gp[it.productoId].lbs+=it.lbs||0;
+    const cp2=cprom(it.productoId)||0;
+    gp[it.productoId].costo+=(it.lbs||0)*cp2;
+  })});
+  const ga=Object.values(gp).map(g=>({...g,gan:g.vt-g.costo})).sort((a,b)=>b.gan-a.gan);
+  const mg=ga.length?Math.max(...ga.map(g=>Math.abs(g.gan)),1):1;
+
+  el.innerHTML=`
+  <div class="g4 sp">
+    <div class="metric info"><div class="ml">Valor Inventario</div><div class="mv">${fm$(inv)}</div><div class="ms">Stock a costo</div></div>
+    <div class="metric good"><div class="ml">Ventas este mes</div><div class="mv">${fm$(vtm)}</div><div class="ms">${DB.ventas.filter(v=>v.fecha?.startsWith(mes)).length} transacciones</div></div>
+    <div class="metric ${gm>=0?'good':'bad'}"><div class="ml">Ganancia real (mes)</div><div class="mv">${fm$(gm)}</div><div class="ms">Ventas − costos</div></div>
+    <div class="metric warn"><div class="ml">Créditos pendientes</div><div class="mv">${fm$(cp)}</div><div class="ms">${DB.ventas.filter(v=>v.tipo==='credito'&&v.saldo>0).length} activos</div></div>
+  </div>
+  <div class="g2 sp">
+    <div class="card">
+      <div class="ch"><span class="ct">🏆 Ganancias por Artículo</span><span style="font-size:11px;color:var(--text-muted)">Total histórico</span></div>
+      ${ga.length?ga.map(g=>`
+        <div style="margin-bottom:13px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><span class="cb">${g.cod||'—'}</span> <span style="font-size:12.5px;font-weight:500">${g.nom}</span></div>
+            <div style="text-align:right">
+              <div style="font-size:13px;font-weight:600;color:${g.gan>=0?'var(--green)':'var(--red)'}">${fm$(g.gan)}</div>
+              <div style="font-size:10.5px;color:var(--text-muted)">${fm(g.lbs,1)} lbs · ventas ${fm$(g.vt)}</div>
+            </div>
+          </div>
+          <div class="gb"><div class="gf" style="width:${Math.max(0,Math.abs(g.gan)/mg*100)}%;background:${g.gan>=0?'var(--green)':'var(--red)'}"></div></div>
+        </div>`).join(''):`<div class="empty"><div class="ic2">📊</div><p>Registre ventas para ver ganancias</p></div>`}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="ch"><span class="ct">💡 Ganancia Estimada</span></div>
+        <div style="font-size:26px;font-weight:600;color:var(--green)">${fm$(ge)}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Si vende todo el stock al precio actual</div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">⚠ Alertas</span><button class="btn bs bw" onclick="navigate('alertas')">Ver</button></div>
+        ${dashAl()}
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">💰 Ventas Recientes</span></div>
+        ${dashVt()}
+      </div>
+    </div>
+  </div>`;
+};
+function dashAl(){
+  const al=[];
+  DB.lotes.filter(l=>l.activo&&l.vencimiento&&dl(l.vencimiento)<=30).forEach(l=>{
+    const p=DB.productos.find(x=>x.id===l.productoId);
+    al.push({n:p?.nombre||'—',d:dl(l.vencimiento)});
+  });
+  if(!al.length)return`<div class="alert as">✅ Sin alertas activas</div>`;
+  return al.slice(0,3).map(a=>`<div class="alert ${a.d<0?'ar':'aw'}"><strong>${a.n}</strong> — ${a.d<0?`Vencido ${Math.abs(a.d)}d`:`${a.d}d restantes`}</div>`).join('');
+}
+function dashVt(){
+  const vs=DB.ventas.slice(-4).reverse();
+  if(!vs.length)return`<div class="empty"><div class="ic2">💰</div><p>Sin ventas</p></div>`;
+  return vs.map(v=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+    <div><div style="font-size:12.5px;font-weight:500">${v.clienteNombre||'Esporádico'}</div><div style="font-size:11px;color:var(--text-muted)">${v.fecha}</div></div>
+    <div style="text-align:right"><div style="font-weight:600">${fm$(v.total)}</div><span class="chip ${v.tipo==='credito'?'cam':'cgn'}">${v.tipo}</span></div>
+  </div>`).join('');
+}
+
+// ============================================================
+// INVENTARIO EXPANDIBLE
+// ============================================================
+PG.inventario=function(el){
+  const grupos={};
+  DB.lotes.filter(l=>l.activo).forEach(l=>{
+    if(!grupos[l.productoId])grupos[l.productoId]={lbs:0,val:0,lotes:[]};
+    grupos[l.productoId].lbs+=l.lbsDisponibles||0;
+    grupos[l.productoId].val+=(l.lbsDisponibles||0)*(l.costoLb||0);
+    grupos[l.productoId].lotes.push(l);
+  });
+  const tVal=Object.values(grupos).reduce((s,g)=>s+g.val,0);
+  const tLbs=Object.values(grupos).reduce((s,g)=>s+g.lbs,0);
+
+  el.innerHTML=`
+  <div class="g3 sp">
+    <div class="metric info"><div class="ml">Valor total</div><div class="mv">${fm$(tVal)}</div><div class="ms">A precio de costo</div></div>
+    <div class="metric info"><div class="ml">Total libras</div><div class="mv">${fm(tLbs,1)} lbs</div></div>
+    <div class="metric info"><div class="ml">Productos en stock</div><div class="mv">${Object.keys(grupos).length}</div></div>
+  </div>
+  <div class="card">
+    <div class="ch"><span class="ct">Stock actual — haga clic en una fila para ver los lotes</span></div>
+    ${Object.keys(grupos).length?`<div class="tw"><table><thead><tr>
+      <th>Producto</th><th>Código</th><th>Proveedor</th><th>Stock (lbs)</th><th>Costo prom/lb</th><th>Valor</th><th>P. Venta/lb</th><th>Margen</th>
+    </tr></thead><tbody id="invbody"></tbody></table></div>`:`<div class="empty"><div class="ic2">📦</div><p>Sin inventario. Registre compras.</p></div>`}
+  </div>`;
+
+  const body=document.getElementById('invbody');
+  if(!body)return;
+
+  Object.entries(grupos).forEach(([pid,g])=>{
+    const prod=DB.productos.find(p=>p.id===pid);
+    const prov=DB.proveedores.find(p=>p.id===prod?.proveedorId);
+    const cp=g.lbs>0?g.val/g.lbs:0;
+    const pv=prod?.precioVenta||0;
+    const margen=pv-cp;
+
+    const tr=document.createElement('tr');
+    tr.className='inv-r';
+    tr.innerHTML=`
+      <td><strong>${prod?.nombre||'—'}</strong></td>
+      <td><span class="cb">${prod?.codigo||'—'}</span></td>
+      <td>${prov?.nombre||'—'}</td>
+      <td><strong>${fm(g.lbs,1)}</strong> lbs</td>
+      <td>${fm$(cp)}</td>
+      <td><strong>${fm$(g.val)}</strong></td>
+      <td style="color:var(--green);font-weight:600">${fm$(pv)}</td>
+      <td><span class="chip ${margen>=0?'cgn':'crd'}">${fm$(margen)}/lb</span></td>`;
+    body.appendChild(tr);
+
+    const extr=document.createElement('tr');
+    extr.style.display='none';
+    extr.innerHTML=`<td colspan="8" style="padding:0;background:#f0f8fd">
+      <table style="width:100%;font-size:11.5px">
+        <thead><tr style="background:#daeef8">
+          <th style="padding:6px 12px 6px 28px;color:var(--ocean)">Lote ID</th>
+          <th style="padding:6px 12px">Fecha compra</th>
+          <th style="padding:6px 12px">Lbs disp.</th>
+          <th style="padding:6px 12px">Costo/lb</th>
+          <th style="padding:6px 12px">Vencimiento</th>
+          <th style="padding:6px 12px">Valor lote</th>
+        </tr></thead>
+        <tbody>${g.lotes.map(l=>{
+          const d=l.vencimiento?dl(l.vencimiento):null;
+          return`<tr>
+            <td style="padding:6px 12px 6px 28px"><span class="cb">${l.loteId}</span></td>
+            <td style="padding:6px 12px">${l.fecha}</td>
+            <td style="padding:6px 12px"><strong>${fm(l.lbsDisponibles,1)}</strong> lbs</td>
+            <td style="padding:6px 12px">${fm$(l.costoLb)}</td>
+            <td style="padding:6px 12px">${l.vencimiento?`<span class="chip ${d<0?'crd':d<=7?'crd':d<=30?'cam':'cgn'}">${l.vencimiento} (${d<0?'vencido':d+'d'})</span>`:'—'}</td>
+            <td style="padding:6px 12px">${fm$((l.lbsDisponibles||0)*(l.costoLb||0))}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </td>`;
+    body.appendChild(extr);
+
+    tr.addEventListener('click',()=>{
+      const open=extr.style.display!=='none';
+      extr.style.display=open?'none':'';
+      tr.classList.toggle('exp',!open);
+    });
+  });
+};
+
+// ============================================================
+// VENTAS
+// ============================================================
+PG.ventas=function(el){
+  let items=[];
+
+  function render(){
+    el.innerHTML=`
+    <div class="tabs" id="vtabs">
+      <div class="tab active" onclick="vtab('lista',this)">Historial</div>
+      <div class="tab" onclick="vtab('nueva',this)">+ Nueva Venta</div>
+    </div>
+    <div id="vc">${listaVt()}</div>`;
+  }
+  render();
+
+  window.vtab=function(t,el2){
+    document.querySelectorAll('#vtabs .tab').forEach(x=>x.classList.remove('active'));
+    el2.classList.add('active');items=[];
+    document.getElementById('vc').innerHTML=t==='lista'?listaVt():nuevaVt();
+    if(t==='nueva')bindVt();
+  };
+
+  function listaVt(){
+    if(!DB.ventas.length)return`<div class="card"><div class="empty"><div class="ic2">💰</div><p>Sin ventas. Use "+ Nueva Venta"</p></div></div>`;
+    return`<div class="card"><div class="tw"><table>
+      <thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th><th>Tipo</th><th>Saldo</th><th></th></tr></thead>
+      <tbody>${DB.ventas.slice().reverse().map(v=>`<tr>
+        <td>${v.fecha}</td>
+        <td>${v.clienteNombre||'Esporádico'}</td>
+        <td>${(v.items||[]).map(i=>`<span class="cb">${i.codigo}</span>`).join(' ')}</td>
+        <td><strong>${fm$(v.total)}</strong></td>
+        <td><span class="chip ${v.tipo==='credito'?'cam':'cgn'}">${v.tipo}</span></td>
+        <td>${v.tipo==='credito'?`<span class="chip ${v.saldo>0?'crd':'cgn'}">${fm$(v.saldo)}</span>`:'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn bs bt" onclick="verDet('${v.id}')">🧾 Detalle</button>
+          ${v.tipo==='credito'&&v.saldo>0?`<button class="btn bs bg" onclick="abonar('${v.id}')">💵 Abonar</button>`:''}
+          <button class="btn bs bd" onclick="delVt('${v.id}')">✕</button>
+        </td>
+      </tr>`).join('')}</tbody></table></div></div>`;
+  }
+
+  function nuevaVt(){
+    const cOpts=DB.clientes.map(c=>`<option value="${c.id}">${c.nombre}${c.descuento?' (-'+c.descuento+'%)':''}</option>`).join('');
+    const pOpts=DB.productos.map(p=>`<option value="${p.id}">${p.nombre} (${p.codigo}) Stk:${fm(stk(p.id),1)}lb</option>`).join('');
+    return`<div class="g2">
+      <div class="card">
+        <div class="ch"><span class="ct">Datos de la venta</span></div>
+        <div class="fg"><label class="fl">Fecha</label><input class="fc" id="vf" type="date" value="${td()}"></div>
+        <div class="fg"><label class="fl">Cliente</label>
+        <select class="fc" id="vcl" onchange="cliCh()"><option value="">— Esporádico —</option>${cOpts}</select></div>
+        <div class="fg" id="espw" style="display:none"><label class="fl">Nombre esporádico</label><input class="fc" id="vesp" placeholder="Nombre"></div>
+        <div class="fg"><label class="fl">Tipo de venta</label>
+        <select class="fc" id="vtipo" onchange="tipoCh()"><option value="contado">Contado</option><option value="credito">Crédito</option></select></div>
+        <div id="credopts" style="display:none">
+          <div class="fr c2">
+            <div class="fg"><label class="fl">Plazo</label>
+            <select class="fc" id="vplazo" onchange="updVc()"><option value="15">15 días</option><option value="30">30 días</option><option value="45">45 días</option></select></div>
+            <div class="fg"><label class="fl">Vence crédito</label><input class="fc" id="vvc" type="date" readonly style="background:var(--gray-light)"></div>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">Promoción</label><input class="fc" id="vpro" placeholder="Ej. Promo Verano, 2x1..."></div>
+        <div class="fg"><label class="fl">Descuento adicional (%)</label><input class="fc" id="vdesc" type="number" min="0" max="100" step="0.5" value="0" oninput="recalc()"></div>
+        <div class="fg"><label class="fl">Notas</label><textarea class="fc" id="vnot" rows="2"></textarea></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Agregar Productos</span></div>
+        <div class="fg"><label class="fl">Producto</label>
+        <select class="fc" id="vpsel" onchange="prodCh()"><option value="">— Seleccione —</option>${pOpts}</select></div>
+        <div id="psug"></div>
+        <div class="fr c3">
+          <div class="fg"><label class="fl">Libras</label><input class="fc" id="vlbs" type="number" step="0.1" placeholder="0.0" oninput="riCalc()"></div>
+          <div class="fg"><label class="fl">Precio/lb</label><input class="fc" id="vpu" type="number" step="0.01" placeholder="0.00" oninput="riCalc()"></div>
+          <div class="fg"><label class="fl">Subtotal</label><input class="fc" id="vsub" readonly style="background:var(--gray-light)"></div>
+        </div>
+        <button class="btn bp bs" onclick="addI()">+ Agregar a la venta</button>
+        <div id="ilist" style="margin-top:10px"></div>
+        <hr style="margin:12px 0;border:none;border-top:1px solid var(--border)">
+        <div style="background:var(--ocean-light);border-radius:var(--radius);padding:12px">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>Subtotal:</span><span id="rs">$0.00</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px"><span>Descuento:</span><span id="rd">-$0.00</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:600;color:var(--ocean)"><span>TOTAL:</span><span id="rt">$0.00</span></div>
+        </div>
+        <button class="btn bp" style="width:100%;margin-top:10px;justify-content:center" onclick="guarVt()">✅ Registrar Venta</button>
+      </div>
+    </div>`;
+  }
+
+  function bindVt(){
+    items=[];
+    window.cliCh=function(){
+      const cid=document.getElementById('vcl').value;
+      document.getElementById('espw').style.display=cid?'none':'';
+      const c=DB.clientes.find(x=>x.id===cid);
+      document.getElementById('vdesc').value=c?.descuento||0;
+      recalc();
+    };
+    window.tipoCh=function(){
+      const t=document.getElementById('vtipo').value;
+      document.getElementById('credopts').style.display=t==='credito'?'':'none';
+      if(t==='credito')updVc();
+    };
+    window.updVc=function(){
+      const p=parseInt(document.getElementById('vplazo')?.value||30);
+      const d=new Date();d.setDate(d.getDate()+p);
+      const f=document.getElementById('vvc');if(f)f.value=d.toISOString().split('T')[0];
+    };
+    window.prodCh=function(){
+      const pid=document.getElementById('vpsel').value;
+      const w=document.getElementById('psug');if(!w)return;
+      if(!pid){w.innerHTML='';return;}
+      const p=DB.productos.find(x=>x.id===pid);
+      if(!p){w.innerHTML='';return;}
+      const cp2=cprom(pid);
+      const mg=p.precioVenta-cp2;
+      const s=stk(pid);
+      w.innerHTML=`<div class="ps">💡 Precio sugerido: <strong>${fm$(p.precioVenta)}/lb</strong> &nbsp;|&nbsp; Costo prom: ${fm$(cp2)}/lb &nbsp;|&nbsp; Margen: <strong style="color:${mg>=0?'var(--green)':'var(--red)'}">${fm$(mg)}/lb</strong> &nbsp;|&nbsp; Stock: ${fm(s,1)} lbs</div>`;
+      document.getElementById('vpu').value=fm(p.precioVenta,2);
+      riCalc();
+    };
+    window.riCalc=function(){
+      const l=parseFloat(document.getElementById('vlbs').value)||0;
+      const p=parseFloat(document.getElementById('vpu').value)||0;
+      const f=document.getElementById('vsub');if(f)f.value=fm$(l*p);
+    };
+    window.addI=function(){
+      const pid=document.getElementById('vpsel').value;
+      const lbs=parseFloat(document.getElementById('vlbs').value)||0;
+      const pu=parseFloat(document.getElementById('vpu').value)||0;
+      if(!pid||!lbs||!pu){toast('Complete producto, libras y precio','err');return;}
+      const ya=items.filter(i=>i.productoId===pid).reduce((s,i)=>s+i.lbs,0);
+      if(lbs+ya>stk(pid)){toast(`Stock insuficiente. Disp: ${fm(stk(pid),1)} lbs`,'err');return;}
+      const p=DB.productos.find(x=>x.id===pid);
+      items.push({productoId:pid,nombre:p?.nombre||'',codigo:p?.codigo||'',lbs,precioUnitario:pu,subtotal:lbs*pu});
+      renderI();document.getElementById('vlbs').value='';document.getElementById('vsub').value='';recalc();
+    };
+    window.remI=function(i){items.splice(i,1);renderI();recalc();};
+    function renderI(){
+      const w=document.getElementById('ilist');if(!w)return;
+      if(!items.length){w.innerHTML='';return;}
+      w.innerHTML=`<div class="tw"><table>
+        <thead><tr><th>Producto</th><th>Lbs</th><th>$/lb</th><th>Subtotal</th><th></th></tr></thead>
+        <tbody>${items.map((it,i)=>`<tr>
+          <td>${it.nombre}</td><td>${fm(it.lbs,1)}</td><td>${fm$(it.precioUnitario)}</td>
+          <td>${fm$(it.subtotal)}</td>
+          <td><button class="btn bs bd" onclick="remI(${i})">✕</button></td>
+        </tr>`).join('')}</tbody></table></div>`;
+    }
+    window.recalc=function(){
+      const sb=items.reduce((s,i)=>s+i.subtotal,0);
+      const dc=parseFloat(document.getElementById('vdesc')?.value)||0;
+      const d2=sb*(dc/100);
+      const to=sb-d2;
+      const rs=document.getElementById('rs');if(rs)rs.textContent=fm$(sb);
+      const rd=document.getElementById('rd');if(rd)rd.textContent='-'+fm$(d2);
+      const rt=document.getElementById('rt');if(rt)rt.textContent=fm$(to);
+    };
+    window.guarVt=async function(){
+      if(!items.length){toast('Agregue productos','err');return;}
+      const sb=items.reduce((s,i)=>s+i.subtotal,0);
+      const dc=parseFloat(document.getElementById('vdesc').value)||0;
+      const tot=sb*(1-dc/100);
+      const cid=document.getElementById('vcl').value;
+      const cli=DB.clientes.find(x=>x.id===cid);
+      const tipo=document.getElementById('vtipo').value;
+      const vt={
+        id:uid(),fecha:document.getElementById('vf').value,
+        clienteId:cid||null,clienteNombre:cid?cli?.nombre:(document.getElementById('vesp')?.value||'Esporádico'),
+        items:[...items],subtotal:sb,descuento:dc,total:tot,tipo,
+        promoAplicada:document.getElementById('vpro').value.trim()||null,
+        notas:document.getElementById('vnot')?.value,
+        saldo:tipo==='credito'?tot:0,
+        plazo:tipo==='credito'?parseInt(document.getElementById('vplazo').value):null,
+        vencimientoCredito:tipo==='credito'?document.getElementById('vvc').value:null,
+        vendedor:SES?.nombre
+      };
+      for(const it of items){
+        let r=it.lbs;
+        const ls=DB.lotes.filter(l=>l.productoId===it.productoId&&l.activo&&l.lbsDisponibles>0).sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+        for(const l of ls){
+          if(r<=0)break;const u=Math.min(l.lbsDisponibles,r);
+          l.lbsDisponibles-=u;r-=u;if(l.lbsDisponibles<=0)l.activo=false;
+        }
+      }
+      DB.ventas.push(vt);await saveDB();items=[];
+      toast('Venta registrada');
+      document.querySelector('#vtabs .tab').click();
+    };
+  }
+
+  window.verDet=function(vid){
+    const v=DB.ventas.find(x=>x.id===vid);if(!v)return;
+    document.getElementById('cotcont').innerHTML=`
+      <div class="coth">
+        <div><div class="cotl">🐟 Freskmar</div><div style="font-size:12px;color:#666;margin-top:3px">Mariscos Congelados y Frescos</div></div>
+        <div class="coti">Detalle de Venta<br>Fecha: ${v.fecha}<br>Tipo: ${v.tipo.toUpperCase()}${v.vendedor?'<br>Vendedor: '+v.vendedor:''}</div>
+      </div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:10px">Cliente: ${v.clienteNombre||'Esporádico'}</div>
+      <table class="cottb">
+        <thead><tr><th>Código</th><th>Producto</th><th>Libras</th><th>Precio/lb</th><th>Subtotal</th></tr></thead>
+        <tbody>${(v.items||[]).map(i=>`<tr><td>${i.codigo}</td><td>${i.nombre}</td><td>${fm(i.lbs,1)} lbs</td><td>${fm$(i.precioUnitario)}</td><td>${fm$(i.subtotal)}</td></tr>`).join('')}</tbody>
+      </table>
+      ${v.descuento>0?`<div style="text-align:right;font-size:13px">Descuento ${v.descuento}%: -${fm$(v.subtotal*(v.descuento/100))}</div>`:''}
+      ${v.promoAplicada?`<div style="text-align:right;font-size:12px;color:#666">Promo: ${v.promoAplicada}</div>`:''}
+      <div style="text-align:right;font-size:16px;font-weight:700;color:var(--ocean);margin-top:8px">TOTAL: ${fm$(v.total)}</div>
+      ${v.tipo==='credito'?`<div style="text-align:right;font-size:12px;color:#666;margin-top:4px">Plazo ${v.plazo}d — Vence: ${v.vencimientoCredito||'—'} — Saldo: ${fm$(v.saldo)}</div>`:''}
+      ${v.notas?`<div style="margin-top:10px;font-size:12px;color:#666">Notas: ${v.notas}</div>`:''}
+      <div class="cotf">Freskmar — Gracias por su preferencia | Mariscos de calidad</div>`;
+    document.getElementById('cotprint').style.display='block';
+  };
+
+  window.abonar=function(vid){
+    const v=DB.ventas.find(x=>x.id===vid);if(!v)return;
+    openModal('Registrar Abono',`
+      <div class="alert ai"><strong>${v.clienteNombre}</strong> — Saldo: <strong>${fm$(v.saldo)}</strong></div>
+      <div class="fg"><label class="fl">Fecha</label><input class="fc" id="abf" type="date" value="${td()}"></div>
+      <div class="fg"><label class="fl">Monto</label><input class="fc" id="abm" type="number" step="0.01" max="${v.saldo}"></div>
+      <div class="fg"><label class="fl">Notas</label><input class="fc" id="abn"></div>
+    `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+       <button class="btn bg" onclick="(async()=>{
+         const m=parseFloat(document.getElementById('abm').value)||0;
+         const vv=DB.ventas.find(x=>x.id==='${vid}');
+         if(!m||m>vv.saldo){toast('Monto inválido','err');return;}
+         vv.saldo-=m;
+         DB.abonos.push({id:uid(),ventaId:'${vid}',fecha:document.getElementById('abf').value,monto:m,notas:document.getElementById('abn').value});
+         await saveDB();closeModal();navigate('ventas');toast('Abono registrado');
+       })()">Registrar</button>`);
+  };
+
+  window.delVt=async function(vid){
+    if(!confirm('¿Eliminar esta venta?'))return;
+    DB.ventas=DB.ventas.filter(v=>v.id!==vid);
+    await saveDB();navigate('ventas');toast('Venta eliminada');
+  };
+};
+
+// ============================================================
+// COMPRAS
+// ============================================================
+PG.compras=function(el){
+  function render(){
+    el.innerHTML=`
+    <div class="fb"><div></div><button class="btn bp" onclick="abrirCmp()">+ Nueva Compra</button></div>
+    <div class="card">${DB.compras.length?`<div class="tw"><table>
+      <thead><tr><th>Lote</th><th>Fecha</th><th>Producto</th><th>Lbs</th><th>Costo/lb</th><th>Total</th><th>Adic.</th><th>Vence</th><th>Disp.</th><th></th></tr></thead>
+      <tbody>${DB.compras.map(c=>{
+        const p=DB.productos.find(x=>x.id===c.productoId);
+        const l=DB.lotes.find(x=>x.compraId===c.id);
+        const d=l?.vencimiento?dl(l.vencimiento):null;
+        return`<tr>
+          <td><span class="cb">${c.loteId}</span></td>
+          <td>${c.fecha}</td><td>${p?.nombre||'—'}</td>
+          <td>${fm(c.lbsCompradas,1)}</td><td>${fm$(c.costoLb)}</td>
+          <td><strong>${fm$(c.totalCosto)}</strong></td>
+          <td>${(c.costosAdicionales||[]).length?`<span class="chip cam">${fm$((c.costosAdicionales||[]).reduce((s,x)=>s+x.monto,0))}</span>`:'—'}</td>
+          <td>${l?.vencimiento?`<span class="chip ${d<0?'crd':d<=7?'crd':d<=30?'cam':'cgn'}">${l.vencimiento}</span>`:'—'}</td>
+          <td>${fm(l?.lbsDisponibles||0,1)} lbs</td>
+          <td><button class="btn bs bd" onclick="delCmp('${c.id}')">✕</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">🛒</div><p>Sin compras</p></div>`}</div>`;
+  }
+  render();
+
+  window.abrirCmp=function(){
+    const pOpts=DB.productos.map(p=>`<option value="${p.id}">${p.nombre} (${p.codigo})</option>`).join('');
+    openModal('Nueva Compra / Lote',`
+      <div class="fr c2">
+        <div class="fg"><label class="fl">Producto *</label><select class="fc" id="cp-p"><option value="">—</option>${pOpts}</select></div>
+        <div class="fg"><label class="fl">Fecha *</label><input class="fc" id="cp-f" type="date" value="${td()}"></div>
+      </div>
+      <div class="fr c3">
+        <div class="fg"><label class="fl">Lbs *</label><input class="fc" id="cp-l" type="number" step="0.1" oninput="ccalc()"></div>
+        <div class="fg"><label class="fl">Total pagado *</label><input class="fc" id="cp-t" type="number" step="0.01" oninput="ccalc()"></div>
+        <div class="fg"><label class="fl">Costo/lb (auto)</label><input class="fc" id="cp-c" readonly style="background:var(--gray-light)"></div>
+      </div>
+      <div class="fr c2">
+        <div class="fg"><label class="fl">Fecha vencimiento</label><input class="fc" id="cp-v" type="date"></div>
+        <div class="fg"><label class="fl">ID de Lote</label><input class="fc" id="cp-li" value="LOT-${Date.now().toString().slice(-5)}"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong style="font-size:12px">Costos adicionales</strong>
+        <button class="btn bs" onclick="addCa()">+ Agregar</button>
+      </div>
+      <div id="carows"></div>
+    `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+       <button class="btn bp" onclick="guarCmp()">Registrar</button>`,'mlg');
+
+    window.ccalc=function(){
+      const l=parseFloat(document.getElementById('cp-l').value)||0;
+      const t=parseFloat(document.getElementById('cp-t').value)||0;
+      const f=document.getElementById('cp-c');if(f)f.value=l>0?fm(t/l,4):'0';
+    };
+    window.addCa=function(){
+      const id=uid();const w=document.getElementById('carows');
+      const d=document.createElement('div');d.id='ca-'+id;
+      d.style.cssText='display:flex;gap:8px;margin-bottom:8px;align-items:center';
+      d.innerHTML=`<select class="fc" id="cat-${id}" style="width:130px">
+        <option value="combustible">Combustible</option>
+        <option value="envio">Envío/flete</option>
+        <option value="otro">Otro</option></select>
+      <input class="fc" id="cad-${id}" placeholder="Descripción" style="flex:1">
+      <input class="fc" id="cam-${id}" type="number" step="0.01" placeholder="Monto" style="width:100px">
+      <button class="btn bs bd" onclick="this.parentElement.remove()">✕</button>`;
+      w&&w.appendChild(d);
+    };
+    window.guarCmp=async function(){
+      const pid=document.getElementById('cp-p').value;
+      const lbs=parseFloat(document.getElementById('cp-l').value)||0;
+      const tot=parseFloat(document.getElementById('cp-t').value)||0;
+      const lid=document.getElementById('cp-li').value.trim();
+      if(!pid||!lbs||!tot||!lid){toast('Complete campos requeridos','err');return;}
+      const costoLb=lbs>0?tot/lbs:0;
+      const ca=[];
+      document.querySelectorAll('#carows > div').forEach(row=>{
+        const rid=row.id.replace('ca-','');
+        const m=parseFloat(document.getElementById('cam-'+rid)?.value)||0;
+        if(m>0)ca.push({tipo:document.getElementById('cat-'+rid)?.value,descripcion:document.getElementById('cad-'+rid)?.value,monto:m});
+      });
+      const cid=uid();
+      DB.compras.push({id:cid,productoId:pid,fecha:document.getElementById('cp-f').value,lbsCompradas:lbs,totalCosto:tot,costoLb,loteId:lid,costosAdicionales:ca});
+      DB.lotes.push({id:uid(),compraId:cid,productoId:pid,loteId:lid,lbsCompradas:lbs,lbsDisponibles:lbs,costoLb,vencimiento:document.getElementById('cp-v').value||null,activo:true,fecha:document.getElementById('cp-f').value});
+      await saveDB();closeModal();render();toast('Compra registrada');checkAl();
+    };
+    window.delCmp=async function(id){
+      if(!confirm('¿Eliminar compra y lote?'))return;
+      DB.compras=DB.compras.filter(c=>c.id!==id);DB.lotes=DB.lotes.filter(l=>l.compraId!==id);
+      await saveDB();render();toast('Eliminado');
+    };
+  };
+};
+
+// ============================================================
+// CRÉDITOS
+// ============================================================
+PG.creditos=function(el){
+  const pend=DB.ventas.filter(v=>v.tipo==='credito'&&v.saldo>0);
+  const pag=DB.ventas.filter(v=>v.tipo==='credito'&&v.saldo<=0);
+  el.innerHTML=`
+  <div class="g3 sp">
+    <div class="metric warn"><div class="ml">Activos</div><div class="mv">${pend.length}</div></div>
+    <div class="metric bad"><div class="ml">Total pendiente</div><div class="mv">${fm$(pend.reduce((s,v)=>s+v.saldo,0))}</div></div>
+    <div class="metric good"><div class="ml">Pagados</div><div class="mv">${pag.length}</div></div>
+  </div>
+  <div class="card">
+    <div class="ch"><span class="ct">Créditos pendientes</span></div>
+    ${pend.length?`<div class="tw"><table>
+      <thead><tr><th>Cliente</th><th>Fecha</th><th>Total</th><th>Saldo</th><th>Vence</th><th>Abonos</th><th></th></tr></thead>
+      <tbody>${pend.map(v=>{
+        const dv=v.vencimientoCredito?dl(v.vencimientoCredito):null;
+        const abs=DB.abonos.filter(a=>a.ventaId===v.id);
+        return`<tr>
+          <td><strong>${v.clienteNombre}</strong></td><td>${v.fecha}</td>
+          <td>${fm$(v.total)}</td><td><span class="chip crd">${fm$(v.saldo)}</span></td>
+          <td>${dv!==null?`<span class="chip ${dv<0?'crd':dv<=7?'cam':'cbl'}">${v.vencimientoCredito}</span>`:'—'}</td>
+          <td><span class="chip cgr">${abs.length} / ${fm$(abs.reduce((s,a)=>s+a.monto,0))}</span></td>
+          <td><button class="btn bs bg" onclick="navigate('ventas');setTimeout(()=>abonar('${v.id}'),300)">💵 Abonar</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">✅</div><p>Sin créditos pendientes</p></div>`}
+  </div>`;
+};
+
+// ============================================================
+// PROVEEDORES
+// ============================================================
+PG.proveedores=function(el){
+  function render(){
+    el.innerHTML=`
+    <div class="fb"><div></div><button class="btn bp" onclick="abrirPv()">+ Nuevo Proveedor</button></div>
+    <div class="card">${DB.proveedores.length?`<div class="tw"><table>
+      <thead><tr><th>Código</th><th>Nombre</th><th>Contacto</th><th>Dirección</th><th>Prod.</th><th></th></tr></thead>
+      <tbody>${DB.proveedores.map(p=>`<tr>
+        <td><span class="cb">${p.codigo}</span></td><td><strong>${p.nombre}</strong></td>
+        <td>${p.contacto||'—'}</td><td>${p.direccion||'—'}</td>
+        <td><span class="chip cbl">${DB.productos.filter(x=>x.proveedorId===p.id).length}</span></td>
+        <td><button class="btn bs" onclick="abrirPv('${p.id}')">✏</button>
+            <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.proveedores=DB.proveedores.filter(x=>x.id!=='${p.id}');await saveDB();navigate('proveedores');toast('Eliminado');})()">✕</button></td>
+      </tr>`).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">🏭</div><p>Sin proveedores</p></div>`}</div>`;
+  }
+  render();
+  window.abrirPv=function(id){
+    const p=DB.proveedores.find(x=>x.id===id)||{};
+    openModal(id?'Editar Proveedor':'Nuevo Proveedor',`
+      <div class="fg"><label class="fl">Nombre *</label><input class="fc" id="pv-n" value="${p.nombre||''}"></div>
+      <div class="fr c2">
+        <div class="fg"><label class="fl">Código (alias) *</label><input class="fc" id="pv-c" value="${p.codigo||''}" maxlength="5" placeholder="Ej. DE"></div>
+        <div class="fg"><label class="fl">Contacto</label><input class="fc" id="pv-k" value="${p.contacto||''}"></div>
+      </div>
+      <div class="fg"><label class="fl">Dirección</label><input class="fc" id="pv-d" value="${p.direccion||''}"></div>
+    `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+       <button class="btn bp" onclick="(async()=>{
+         const n=document.getElementById('pv-n').value.trim();
+         const c=document.getElementById('pv-c').value.trim().toUpperCase();
+         if(!n||!c){toast('Nombre y código requeridos','err');return;}
+         const d={nombre:n,codigo:c,contacto:document.getElementById('pv-k').value.trim(),direccion:document.getElementById('pv-d').value.trim()};
+         if('${id}'){const i=DB.proveedores.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.proveedores[i],d);}
+         else DB.proveedores.push({id:uid(),...d});
+         await saveDB();closeModal();render();toast('Proveedor guardado');
+       })()">Guardar</button>`);
+  };
+};
+
+// ============================================================
+// PRODUCTOS
+// ============================================================
+PG.productos=function(el){
+  function render(){
+    el.innerHTML=`
+    <div class="fb"><div></div><button class="btn bp" onclick="abrirPd()">+ Nuevo Producto</button></div>
+    <div class="card">${DB.productos.length?`<div class="tw"><table>
+      <thead><tr><th>Código</th><th>Nombre</th><th>Proveedor</th><th>Tipo</th><th>P. Venta/lb</th><th>Stock</th><th></th></tr></thead>
+      <tbody>${DB.productos.map(p=>{
+        const pv=DB.proveedores.find(x=>x.id===p.proveedorId);
+        const s=stk(p.id);
+        return`<tr>
+          <td><span class="cb">${p.codigo}</span></td><td><strong>${p.nombre}</strong></td>
+          <td>${pv?.nombre||'—'}</td>
+          <td><span class="chip ${p.tipoMarisco==='fresco'?'ctl':'cbl'}">${p.tipoMarisco||'—'}</span></td>
+          <td style="color:var(--green);font-weight:600">${fm$(p.precioVenta)}</td>
+          <td><strong>${fm(s,1)}</strong> lbs ${s>0&&s<5?'<span class="chip cam">bajo</span>':''}</td>
+          <td><button class="btn bs" onclick="abrirPd('${p.id}')">✏</button>
+              <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.productos=DB.productos.filter(x=>x.id!=='${p.id}');await saveDB();navigate('productos');toast('Eliminado');})()">✕</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">🐟</div><p>Sin productos</p></div>`}</div>`;
+  }
+  render();
+  window.abrirPd=function(id){
+    const p=DB.productos.find(x=>x.id===id)||{};
+    const pvOpts=DB.proveedores.map(pv=>`<option value="${pv.id}" ${pv.id===p.proveedorId?'selected':''}>${pv.nombre} (${pv.codigo})</option>`).join('');
+    openModal(id?'Editar Producto':'Nuevo Producto',`
+      <div class="fg"><label class="fl">Proveedor *</label><select class="fc" id="pd-pv" onchange="pvNom()"><option value="">—</option>${pvOpts}</select></div>
+      <div class="fg"><label class="fl">Nombre del Producto *</label><input class="fc" id="pd-n" value="${p.nombre||''}" oninput="pvNom()"></div>
+      <div id="nompr"></div>
+      <div class="fr c2">
+        <div class="fg"><label class="fl">Tipo</label>
+        <select class="fc" id="pd-t">
+          <option value="congelado" ${p.tipoMarisco==='congelado'?'selected':''}>Congelado</option>
+          <option value="fresco" ${p.tipoMarisco==='fresco'?'selected':''}>Fresco</option>
+        </select></div>
+        <div class="fg"><label class="fl">Precio venta/lb *</label><input class="fc" id="pd-pv2" type="number" step="0.01" value="${p.precioVenta||''}"></div>
+      </div>
+      <div class="fg"><label class="fl">Código (editable)</label><input class="fc" id="pd-c" value="${p.codigo||''}" placeholder="Auto-generado"></div>
+    `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+       <button class="btn bp" onclick="(async()=>{
+         const pvId=document.getElementById('pd-pv').value;
+         const n=document.getElementById('pd-n').value.trim();
+         if(!pvId||!n){toast('Proveedor y nombre requeridos','err');return;}
+         const prov=DB.proveedores.find(x=>x.id===pvId);
+         const c=document.getElementById('pd-c').value.trim()||nomen(prov,n);
+         const d={proveedorId:pvId,nombre:n,codigo:c,tipoMarisco:document.getElementById('pd-t').value,precioVenta:parseFloat(document.getElementById('pd-pv2').value)||0};
+         if('${id}'){const i=DB.productos.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.productos[i],d);}
+         else DB.productos.push({id:uid(),...d});
+         await saveDB();closeModal();render();toast('Producto guardado');
+       })()">Guardar</button>`);
+    window.pvNom=function(){
+      const pvId=document.getElementById('pd-pv')?.value;
+      const n=document.getElementById('pd-n')?.value;
+      const prov=DB.proveedores.find(x=>x.id===pvId);
+      const w=document.getElementById('nompr');if(!w)return;
+      if(prov&&n){
+        const c=nomen(prov,n);
+        const cf=document.getElementById('pd-c');if(cf&&!cf.value)cf.value=c;
+        w.innerHTML=`<div class="ps" style="margin-bottom:10px">Nomenclatura: <strong>${c}</strong></div>`;
+      }else w.innerHTML='';
+    };
+    if(id)setTimeout(pvNom,50);
+  };
+};
+
+// ============================================================
+// CLIENTES
+// ============================================================
+PG.clientes=function(el){
+  function render(){
+    el.innerHTML=`
+    <div class="fb"><div></div><button class="btn bp" onclick="abrirCl()">+ Nuevo Cliente</button></div>
+    <div class="card">${DB.clientes.length?`<div class="tw"><table>
+      <thead><tr><th>Nombre</th><th>Tipo</th><th>Contacto</th><th>Dcto.</th><th>Ventas</th><th></th></tr></thead>
+      <tbody>${DB.clientes.map(c=>`<tr>
+        <td><strong>${c.nombre}</strong></td>
+        <td><span class="chip ${c.tipo==='frecuente'?'cbl':'cgr'}">${c.tipo}</span></td>
+        <td>${c.contacto||'—'}</td><td>${c.descuento?'-'+c.descuento+'%':'Estándar'}</td>
+        <td><span class="chip ctl">${DB.ventas.filter(v=>v.clienteId===c.id).length}</span></td>
+        <td><button class="btn bs" onclick="abrirCl('${c.id}')">✏</button>
+            <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.clientes=DB.clientes.filter(x=>x.id!=='${c.id}');await saveDB();navigate('clientes');toast('Eliminado');})()">✕</button></td>
+      </tr>`).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">👥</div><p>Sin clientes</p></div>`}</div>`;
+  }
+  render();
+  window.abrirCl=function(id){
+    const c=DB.clientes.find(x=>x.id===id)||{};
+    openModal(id?'Editar Cliente':'Nuevo Cliente',`
+      <div class="fg"><label class="fl">Nombre *</label><input class="fc" id="cl-n" value="${c.nombre||''}"></div>
+      <div class="fr c2">
+        <div class="fg"><label class="fl">Tipo</label><select class="fc" id="cl-t">
+          <option value="frecuente" ${c.tipo==='frecuente'?'selected':''}>Frecuente</option>
+          <option value="esporadico" ${c.tipo==='esporadico'?'selected':''}>Esporádico</option>
+        </select></div>
+        <div class="fg"><label class="fl">Descuento (%)</label><input class="fc" id="cl-d" type="number" min="0" max="50" step="0.5" value="${c.descuento||0}"></div>
+      </div>
+      <div class="fg"><label class="fl">Contacto</label><input class="fc" id="cl-c" value="${c.contacto||''}"></div>
+      <div class="fg"><label class="fl">Dirección</label><input class="fc" id="cl-r" value="${c.direccion||''}"></div>
+    `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+       <button class="btn bp" onclick="(async()=>{
+         const n=document.getElementById('cl-n').value.trim();
+         if(!n){toast('Nombre requerido','err');return;}
+         const d={nombre:n,tipo:document.getElementById('cl-t').value,descuento:parseFloat(document.getElementById('cl-d').value)||0,contacto:document.getElementById('cl-c').value.trim(),direccion:document.getElementById('cl-r').value.trim()};
+         if('${id}'){const i=DB.clientes.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.clientes[i],d);}
+         else DB.clientes.push({id:uid(),...d});
+         await saveDB();closeModal();render();toast('Cliente guardado');
+       })()">Guardar</button>`);
+  };
+};
+
+// ============================================================
+// USUARIOS
+// ============================================================
+PG.usuarios=function(el){
+  if(!isAdmin()){el.innerHTML=`<div class="alert ar">Acceso restringido a administradores.</div>`;return;}
+  function render(){
+    el.innerHTML=`
+    <div class="alert ai">Las credenciales se sincronizan vía JSONbin. Use contraseñas simples.</div>
+    <div class="fb"><div></div><button class="btn bp" onclick="abrirUs()">+ Nuevo Usuario</button></div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th></th></tr></thead>
+      <tbody>${DB.usuarios.map(u=>`<tr>
+        <td><strong>${u.nombre}</strong></td><td><code>${u.usuario}</code></td>
+        <td><span class="chip ${u.rol==='admin'?'cbl':'ctl'}">${u.rol==='admin'?'Administrador':'Vendedor'}</span></td>
+        <td>${u.id!=='admin'?`<button class="btn bs" onclick="abrirUs('${u.id}')">✏</button>
+            <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.usuarios=DB.usuarios.filter(x=>x.id!=='${u.id}');await saveDB();render();toast('Eliminado');})()">✕</button>`
+            :'<span style="font-size:11px;color:var(--text-muted)">Admin principal</span>'}</td>
+      </tr>`).join('')}
+      </tbody></table></div></div>
+      <div class="card" style="margin-top:14px">
+        <div class="ch"><span class="ct">Permisos por rol</span></div>
+        <div class="g2">
+          <div><div class="chip cbl" style="margin-bottom:8px">Administrador</div>
+          <ul style="font-size:12px;color:var(--text-muted);padding-left:16px;line-height:2.1">
+            <li>Dashboard, inventario, ventas, compras, créditos</li>
+            <li>Proveedores, productos, clientes</li>
+            <li>Gestión de usuarios y configuración</li>
+          </ul></div>
+          <div><div class="chip ctl" style="margin-bottom:8px">Vendedor</div>
+          <ul style="font-size:12px;color:var(--text-muted);padding-left:16px;line-height:2.1">
+            <li>Dashboard (lectura)</li>
+            <li>Ver inventario, registrar ventas y compras</li>
+            <li>Ver y abonar créditos</li>
+            <li>Sin acceso a catálogos ni usuarios</li>
+          </ul></div>
+        </div>
+      </div>`;
+  }
+  render();
+  window.abrirUs=function(id){
+    const u=DB.usuarios.find(x=>x.id===id)||{};
+    openModal(id?'Editar Usuario':'Nuevo Usuario',`
+      <div class="fg"><label class="fl">Nombre completo *</label><input class="fc" id="us-n" value="${u.nombre||''}"></div>
+      <div class="fr c2">
+        <div class="fg"><label class="fl">Usuario (login) *</label><input class="fc" id="us-u" value="${u.usuario||''}"></div>
+        <div class="fg"><label class="fl">${id?'Nueva contraseña':'Contraseña *'}</label><input class="fc" id="us-p" type="password" placeholder="${id?'Dejar vacío = sin cambio':''}"></div>
+      </div>
+      <div class="fg"><label class="fl">Rol</label><select class="fc" id="us-r">
+        <option value="admin" ${u.rol==='admin'?'selected':''}>Administrador</option>
+        <option value="vendedor" ${u.rol==='vendedor'?'selected':''}>Vendedor</option>
+      </select></div>
+    `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+       <button class="btn bp" onclick="(async()=>{
+         const n=document.getElementById('us-n').value.trim();
+         const usr=document.getElementById('us-u').value.trim();
+         const pass=document.getElementById('us-p').value;
+         if(!n||!usr){toast('Nombre y usuario requeridos','err');return;}
+         if(!'${id}'&&!pass){toast('Contraseña requerida','err');return;}
+         if(DB.usuarios.find(x=>x.usuario===usr&&x.id!=='${id}')){toast('Usuario ya existe','err');return;}
+         const d={nombre:n,usuario:usr,rol:document.getElementById('us-r').value};
+         if(pass)d.pass=pass;
+         if('${id}'){const i=DB.usuarios.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.usuarios[i],d);}
+         else DB.usuarios.push({id:uid(),...d});
+         await saveDB();closeModal();render();toast('Usuario guardado');
+       })()">Guardar</button>`);
+  };
+};
+
+// ============================================================
+// ALERTAS
+// ============================================================
+PG.alertas=function(el){
+  const items=[];
+  DB.lotes.filter(l=>l.activo).forEach(l=>{
+    const p=DB.productos.find(x=>x.id===l.productoId);
+    const pv=DB.proveedores.find(x=>x.id===p?.proveedorId);
+    const d=l.vencimiento?dl(l.vencimiento):null;
+    items.push({l,p,pv,d});
+  });
+  items.sort((a,b)=>(a.d??9999)-(b.d??9999));
+  const vc=items.filter(i=>i.d!==null&&i.d<0);
+  const cr=items.filter(i=>i.d!==null&&i.d>=0&&i.d<=7);
+  const pr=items.filter(i=>i.d!==null&&i.d>7&&i.d<=30);
+  const ok=items.filter(i=>i.d===null||i.d>30);
+  function tbl(arr){
+    return`<div class="tw"><table>
+      <thead><tr><th>Lote</th><th>Producto</th><th>Proveedor</th><th>Lbs</th><th>Vencimiento</th><th>Estado</th></tr></thead>
+      <tbody>${arr.map(({l,p,pv,d})=>`<tr>
+        <td><span class="cb">${l.loteId}</span></td><td>${p?.nombre||'—'}</td><td>${pv?.nombre||'—'}</td>
+        <td>${fm(l.lbsDisponibles,1)} lbs</td><td>${l.vencimiento||'—'}</td>
+        <td>${d===null?'<span class="chip cgr">Sin fecha</span>':d<0?`<span class="chip crd">Vencido ${Math.abs(d)}d</span>`:d===0?'<span class="chip crd">HOY</span>':`<span class="chip ${d<=7?'crd':d<=30?'cam':'cgn'}">${d}d</span>`}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+  }
+  el.innerHTML=`
+  <div class="g3 sp">
+    <div class="metric bad"><div class="ml">Vencidos</div><div class="mv">${vc.length}</div></div>
+    <div class="metric bad"><div class="ml">Críticos (≤7d)</div><div class="mv">${cr.length}</div></div>
+    <div class="metric warn"><div class="ml">Próximos (≤30d)</div><div class="mv">${pr.length}</div></div>
+  </div>
+  ${vc.length?`<div class="card sp"><div class="ch"><span class="ct" style="color:var(--red)">🚨 Vencidos</span></div>${tbl(vc)}</div>`:''}
+  ${cr.length?`<div class="card sp"><div class="ch"><span class="ct" style="color:var(--red)">⚠ Críticos ≤7 días</span></div>${tbl(cr)}</div>`:''}
+  ${pr.length?`<div class="card sp"><div class="ch"><span class="ct" style="color:var(--amber)">🕐 Próximos ≤30 días</span></div>${tbl(pr)}</div>`:''}
+  ${ok.length?`<div class="card"><div class="ch"><span class="ct" style="color:var(--green)">✅ Sin alerta</span></div>${tbl(ok)}</div>`:''}
+  ${!items.length?`<div class="card"><div class="empty"><div class="ic2">🔔</div><p>Sin lotes con fecha de vencimiento.</p></div></div>`:''}`;
+};
+
+// INIT
+(async()=>{await loadDB();})();
+</script>
+</body>
+</html>
