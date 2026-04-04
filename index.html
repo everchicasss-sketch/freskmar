@@ -884,7 +884,7 @@ PG.proveedores=function(el){
          const c=document.getElementById('pv-c').value.trim().toUpperCase();
          if(!n||!c){toast('Nombre y código requeridos','err');return;}
          const d={nombre:n,codigo:c,contacto:document.getElementById('pv-k').value.trim(),direccion:document.getElementById('pv-d').value.trim()};
-         if('${id}'){const i=DB.proveedores.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.proveedores[i],d);}
+         if(id){const i=DB.proveedores.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.proveedores[i],d);}
          else DB.proveedores.push({id:uid(),...d});
          await saveDB();closeModal();render();toast('Proveedor guardado');
        })()">Guardar</button>`);
@@ -939,7 +939,7 @@ PG.productos=function(el){
          const prov=DB.proveedores.find(x=>x.id===pvId);
          const c=document.getElementById('pd-c').value.trim()||nomen(prov,n);
          const d={proveedorId:pvId,nombre:n,codigo:c,tipoMarisco:document.getElementById('pd-t').value,precioVenta:parseFloat(document.getElementById('pd-pv2').value)||0};
-         if('${id}'){const i=DB.productos.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.productos[i],d);}
+         if(id){const i=DB.productos.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.productos[i],d);}
          else DB.productos.push({id:uid(),...d});
          await saveDB();closeModal();render();toast('Producto guardado');
        })()">Guardar</button>`);
@@ -995,7 +995,7 @@ PG.clientes=function(el){
          const n=document.getElementById('cl-n').value.trim();
          if(!n){toast('Nombre requerido','err');return;}
          const d={nombre:n,tipo:document.getElementById('cl-t').value,descuento:parseFloat(document.getElementById('cl-d').value)||0,contacto:document.getElementById('cl-c').value.trim(),direccion:document.getElementById('cl-r').value.trim()};
-         if('${id}'){const i=DB.clientes.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.clientes[i],d);}
+         if(id){const i=DB.clientes.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.clientes[i],d);}
          else DB.clientes.push({id:uid(),...d});
          await saveDB();closeModal();render();toast('Cliente guardado');
        })()">Guardar</button>`);
@@ -1063,7 +1063,7 @@ PG.usuarios=function(el){
          if(DB.usuarios.find(x=>x.usuario===usr&&x.id!=='${id}')){toast('Usuario ya existe','err');return;}
          const d={nombre:n,usuario:usr,rol:document.getElementById('us-r').value};
          if(pass)d.pass=pass;
-         if('${id}'){const i=DB.usuarios.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.usuarios[i],d);}
+         if(id){const i=DB.usuarios.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.usuarios[i],d);}
          else DB.usuarios.push({id:uid(),...d});
          await saveDB();closeModal();render();toast('Usuario guardado');
        })()">Guardar</button>`);
