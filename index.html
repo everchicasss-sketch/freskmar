@@ -169,7 +169,10 @@ select.fc{cursor:pointer}
       <div class="sb-av" id="sbav">?</div>
       <div><div class="sb-uname" id="sbuname">—</div><div class="sb-urole" id="sbrole">—</div></div>
     </div>
-    <span class="sb-out" onclick="doLogout()">Cerrar sesión</span>
+    <div style="display:flex;gap:12px;margin-top:2px">
+      <span class="sb-out" onclick="cambiarPass()">🔑 Contraseña</span>
+      <span class="sb-out" onclick="doLogout()">Salir</span>
+    </div>
   </div>
 </nav>
 
@@ -202,11 +205,17 @@ select.fc{cursor:pointer}
 
 <script>
 let DB={
-  usuarios:[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'admin123',rol:'admin'}],
+  usuarios:[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',rol:'admin'}],
   proveedores:[],productos:[],clientes:[],compras:[],lotes:[],ventas:[],abonos:[],
   config:{jsonbinKey:'',jsonbinBin:''}
 };
 let SES=null;
+
+// SHA-256 usando Web Crypto API (nativo en todos los navegadores modernos)
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 
 async function saveDB(){
   localStorage.setItem('freskmar2',JSON.stringify(DB));
@@ -217,16 +226,22 @@ async function saveDB(){
 async function loadDB(){
   const loc=localStorage.getItem('freskmar2');
   if(loc){try{const p=JSON.parse(loc);if(p?.usuarios)DB=p;}catch(e){}}
-  if(!DB.usuarios?.length)DB.usuarios=[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'admin123',rol:'admin'}];
+  if(!DB.usuarios?.length)DB.usuarios=[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',rol:'admin'}];
   const c=DB.config;
   if(!c?.jsonbinKey||!c?.jsonbinBin)return;
   try{const r=await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}/latest`,{headers:{'X-Master-Key':c.jsonbinKey}});if(r.ok){const j=await r.json();if(j.record?.usuarios)DB=j.record;}}catch(e){}
 }
 
-function doLogin(){
+async function doLogin(){
   const u=document.getElementById('luser').value.trim();
   const p=document.getElementById('lpass').value;
-  const f=DB.usuarios.find(x=>x.usuario===u&&x.pass===p);
+  const hash=await sha256(p);
+  // Compatibilidad: acepta hash o texto plano (para migrar cuentas antiguas)
+  const f=DB.usuarios.find(x=>x.usuario===u&&(x.pass===hash||x.pass===p));
+  if(f&&f.pass===p){
+    // Migrar contraseña en texto plano a hash automáticamente
+    f.pass=hash;await saveDB();
+  }
   document.getElementById('lerr').style.display=f?'none':'';
   if(!f)return;
   SES=f;
@@ -246,6 +261,33 @@ function doLogout(){
   document.getElementById('luser').value='';document.getElementById('lpass').value='';
 }
 function isAdmin(){return SES?.rol==='admin';}
+
+// Cambiar contraseña del usuario actual
+window.cambiarPass=function(){
+  openModal('Cambiar mi contraseña',`
+    <div class="fg"><label class="fl">Contraseña actual *</label><input class="fc" id="cp-old" type="password" placeholder="••••••"></div>
+    <div class="fg"><label class="fl">Nueva contraseña *</label><input class="fc" id="cp-new" type="password" placeholder="••••••"></div>
+    <div class="fg"><label class="fl">Confirmar nueva contraseña *</label><input class="fc" id="cp-con" type="password" placeholder="••••••"></div>
+  `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+     <button class="btn bp" onclick="guardarCambioPass()">Actualizar contraseña</button>`);
+};
+window.guardarCambioPass=async function(){
+  const oldPass=document.getElementById('cp-old').value;
+  const newPass=document.getElementById('cp-new').value;
+  const conPass=document.getElementById('cp-con').value;
+  if(!oldPass||!newPass||!conPass){toast('Complete todos los campos','err');return;}
+  if(newPass!==conPass){toast('Las contraseñas nuevas no coinciden','err');return;}
+  if(newPass.length<6){toast('La contraseña debe tener al menos 6 caracteres','err');return;}
+  const oldHash=await sha256(oldPass);
+  const u=DB.usuarios.find(x=>x.id===SES.id);
+  // Verificar contraseña actual (acepta hash o texto plano heredado)
+  if(u.pass!==oldHash&&u.pass!==oldPass){toast('La contraseña actual es incorrecta','err');return;}
+  u.pass=await sha256(newPass);
+  SES.pass=u.pass;
+  await saveDB();
+  closeModal();
+  toast('Contraseña actualizada correctamente');
+};
 
 function buildNav(){
   const a=isAdmin();
@@ -1059,10 +1101,10 @@ PG.usuarios=function(el){
          const usr=document.getElementById('us-u').value.trim();
          const pass=document.getElementById('us-p').value;
          if(!n||!usr){toast('Nombre y usuario requeridos','err');return;}
-         if(!'${id}'&&!pass){toast('Contraseña requerida','err');return;}
+         if(!id&&!pass){toast('Contraseña requerida','err');return;}
          if(DB.usuarios.find(x=>x.usuario===usr&&x.id!=='${id}')){toast('Usuario ya existe','err');return;}
          const d={nombre:n,usuario:usr,rol:document.getElementById('us-r').value};
-         if(pass)d.pass=pass;
+         if(pass)d.pass=await sha256(pass);
          if(id){const i=DB.usuarios.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.usuarios[i],d);}
          else DB.usuarios.push({id:uid(),...d});
          await saveDB();closeModal();render();toast('Usuario guardado');
