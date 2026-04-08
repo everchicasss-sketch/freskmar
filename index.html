@@ -230,18 +230,22 @@ async function loadDB(){
   const c=DB.config;
   if(!c?.jsonbinKey||!c?.jsonbinBin)return;
   try{const r=await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}/latest`,{headers:{'X-Master-Key':c.jsonbinKey}});if(r.ok){const j=await r.json();if(j.record?.usuarios)DB=j.record;}}catch(e){}
+  // Migrar contraseñas en texto plano a SHA-256 automáticamente
+  let migrado=false;
+  for(const u of DB.usuarios){
+    if(u.pass&&u.pass.length<64){
+      u.pass=await sha256(u.pass);migrado=true;
+    }
+  }
+  if(migrado)await saveDB();
 }
 
 async function doLogin(){
   const u=document.getElementById('luser').value.trim();
   const p=document.getElementById('lpass').value;
+  if(!u||!p){document.getElementById('lerr').style.display='';return;}
   const hash=await sha256(p);
-  // Compatibilidad: acepta hash o texto plano (para migrar cuentas antiguas)
-  const f=DB.usuarios.find(x=>x.usuario===u&&(x.pass===hash||x.pass===p));
-  if(f&&f.pass===p){
-    // Migrar contraseña en texto plano a hash automáticamente
-    f.pass=hash;await saveDB();
-  }
+  const f=DB.usuarios.find(x=>x.usuario===u&&x.pass===hash);
   document.getElementById('lerr').style.display=f?'none':'';
   if(!f)return;
   SES=f;
