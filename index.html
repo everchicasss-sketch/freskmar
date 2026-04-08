@@ -204,48 +204,86 @@ select.fc{cursor:pointer}
 </div>
 
 <script>
+// ── DB base siempre disponible ──────────────────────────────
 let DB={
-  usuarios:[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',rol:'admin'}],
+  usuarios:[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'admin123',rol:'admin'}],
   proveedores:[],productos:[],clientes:[],compras:[],lotes:[],ventas:[],abonos:[],
   config:{jsonbinKey:'',jsonbinBin:''}
 };
 let SES=null;
 
-// SHA-256 usando Web Crypto API (nativo en todos los navegadores modernos)
+// SHA-256 nativo
 async function sha256(str){
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// Normaliza todos los usuarios: convierte texto plano → hash
+async function normalizarPasswords(){
+  let cambio=false;
+  for(const u of DB.usuarios){
+    if(u.pass && u.pass.length!==64){
+      u.pass=await sha256(u.pass);
+      cambio=true;
+    }
+  }
+  return cambio;
+}
+
 async function saveDB(){
   localStorage.setItem('freskmar2',JSON.stringify(DB));
   const c=DB.config;
-  if(!c.jsonbinKey||!c.jsonbinBin)return;
-  try{await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}`,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':c.jsonbinKey},body:JSON.stringify(DB)});}catch(e){}
+  if(!c||!c.jsonbinKey||!c.jsonbinBin)return;
+  try{
+    await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':c.jsonbinKey},
+      body:JSON.stringify(DB)
+    });
+  }catch(e){}
 }
+
 async function loadDB(){
-  const loc=localStorage.getItem('freskmar2');
-  if(loc){try{const p=JSON.parse(loc);if(p?.usuarios)DB=p;}catch(e){}}
-  if(!DB.usuarios?.length)DB.usuarios=[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',rol:'admin'}];
+  // 1. Cargar localStorage
+  try{
+    const loc=localStorage.getItem('freskmar2');
+    if(loc){const p=JSON.parse(loc);if(p&&p.usuarios)DB=p;}
+  }catch(e){}
+
+  // 2. Cargar JSONbin si está configurado
   const c=DB.config;
-  if(!c?.jsonbinKey||!c?.jsonbinBin)return;
-  try{const r=await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}/latest`,{headers:{'X-Master-Key':c.jsonbinKey}});if(r.ok){const j=await r.json();if(j.record?.usuarios)DB=j.record;}}catch(e){}
-  // Migrar contraseñas en texto plano a SHA-256 automáticamente
-  let migrado=false;
-  for(const u of DB.usuarios){
-    if(u.pass&&u.pass.length<64){
-      u.pass=await sha256(u.pass);migrado=true;
-    }
+  if(c&&c.jsonbinKey&&c.jsonbinBin){
+    try{
+      const r=await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}/latest`,{
+        headers:{'X-Master-Key':c.jsonbinKey}
+      });
+      if(r.ok){
+        const j=await r.json();
+        if(j.record&&j.record.usuarios) DB=j.record;
+      }
+    }catch(e){}
   }
-  if(migrado)await saveDB();
+
+  // 3. Garantizar que siempre exista al menos el admin
+  if(!DB.usuarios||!DB.usuarios.length){
+    DB.usuarios=[{id:'admin',nombre:'Administrador',usuario:'admin',pass:'admin123',rol:'admin'}];
+  }
+
+  // 4. Convertir todas las contraseñas en texto plano a hash y guardar
+  const huboMigracion=await normalizarPasswords();
+  if(huboMigracion) await saveDB();
 }
 
 async function doLogin(){
-  const u=document.getElementById('luser').value.trim();
-  const p=document.getElementById('lpass').value;
-  if(!u||!p){document.getElementById('lerr').style.display='';return;}
-  const hash=await sha256(p);
-  const f=DB.usuarios.find(x=>x.usuario===u&&x.pass===hash);
+  const usuario=document.getElementById('luser').value.trim();
+  const clave=document.getElementById('lpass').value;
+  if(!usuario||!clave){
+    document.getElementById('lerr').style.display='';
+    return;
+  }
+  const hashIngresado=await sha256(clave);
+  // Buscar usuario por nombre de usuario Y contraseña (ya normalizada a hash)
+  const f=DB.usuarios.find(x=>x.usuario===usuario && x.pass===hashIngresado);
   document.getElementById('lerr').style.display=f?'none':'';
   if(!f)return;
   SES=f;
