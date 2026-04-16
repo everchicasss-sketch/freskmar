@@ -230,17 +230,18 @@ async function normalizarPasswords(){
   return cambio;
 }
 
-async function saveDB(){
+function saveDB(){
+  // localStorage instantáneo — sin bloqueo
   localStorage.setItem('freskmar2',JSON.stringify(DB));
+  // JSONbin en segundo plano — no bloquea la UI
   const c=DB.config;
-  if(!c||!c.jsonbinKey||!c.jsonbinBin)return;
-  try{
-    await fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}`,{
+  if(c&&c.jsonbinKey&&c.jsonbinBin){
+    fetch(`https://api.jsonbin.io/v3/b/${c.jsonbinBin}`,{
       method:'PUT',
       headers:{'Content-Type':'application/json','X-Master-Key':c.jsonbinKey},
       body:JSON.stringify(DB)
-    });
-  }catch(e){}
+    }).catch(()=>{});
+  }
 }
 
 async function loadDB(){
@@ -271,7 +272,7 @@ async function loadDB(){
 
   // 4. Convertir todas las contraseñas en texto plano a hash y guardar
   const huboMigracion=await normalizarPasswords();
-  if(huboMigracion) await saveDB();
+  if(huboMigracion) saveDB();
 }
 
 async function doLogin(){
@@ -326,7 +327,7 @@ window.guardarCambioPass=async function(){
   if(u.pass!==oldHash&&u.pass!==oldPass){toast('La contraseña actual es incorrecta','err');return;}
   u.pass=await sha256(newPass);
   SES.pass=u.pass;
-  await saveDB();
+  saveDB();
   closeModal();
   toast('Contraseña actualizada correctamente');
 };
@@ -406,7 +407,7 @@ function openCfg(){
     <div class="fg"><label class="fl">Master Key</label><input class="fc" id="cfk" value="${DB.config.jsonbinKey||''}"></div>
     <div class="fg"><label class="fl">Bin ID</label><input class="fc" id="cfb" value="${DB.config.jsonbinBin||''}"></div>
   `,`<button class="btn" onclick="closeModal()">Cancelar</button>
-     <button class="btn bp" onclick="(async()=>{DB.config.jsonbinKey=document.getElementById('cfk').value.trim();DB.config.jsonbinBin=document.getElementById('cfb').value.trim();await saveDB();closeModal();toast('Configuración guardada');})()">Guardar</button>`);
+     <button class="btn bp" onclick="(()=>{DB.config.jsonbinKey=document.getElementById('cfk').value.trim();DB.config.jsonbinBin=document.getElementById('cfb').value.trim();saveDB();closeModal();toast('Configuración guardada');})()">Guardar</button>`);
 }
 
 // ============================================================
@@ -758,7 +759,7 @@ PG.ventas=function(el){
           l.lbsDisponibles-=u;r-=u;if(l.lbsDisponibles<=0)l.activo=false;
         }
       }
-      DB.ventas.push(vt);await saveDB();items=[];
+      DB.ventas.push(vt);saveDB();items=[];
       toast('Venta registrada');
       document.querySelector('#vtabs .tab').click();
     };
@@ -793,20 +794,20 @@ PG.ventas=function(el){
       <div class="fg"><label class="fl">Monto</label><input class="fc" id="abm" type="number" step="0.01" max="${v.saldo}"></div>
       <div class="fg"><label class="fl">Notas</label><input class="fc" id="abn"></div>
     `,`<button class="btn" onclick="closeModal()">Cancelar</button>
-       <button class="btn bg" onclick="(async()=>{
+       <button class="btn bg" onclick="(()=>{
          const m=parseFloat(document.getElementById('abm').value)||0;
          const vv=DB.ventas.find(x=>x.id==='${vid}');
          if(!m||m>vv.saldo){toast('Monto inválido','err');return;}
          vv.saldo-=m;
          DB.abonos.push({id:uid(),ventaId:'${vid}',fecha:document.getElementById('abf').value,monto:m,notas:document.getElementById('abn').value});
-         await saveDB();closeModal();navigate('ventas');toast('Abono registrado');
+         saveDB();closeModal();navigate('creditos');toast('Abono registrado');
        })()">Registrar</button>`);
   };
 
   window.delVt=async function(vid){
     if(!confirm('¿Eliminar esta venta?'))return;
     DB.ventas=DB.ventas.filter(v=>v.id!==vid);
-    await saveDB();navigate('ventas');toast('Venta eliminada');
+    saveDB();navigate('ventas');toast('Venta eliminada');
   };
 };
 
@@ -895,12 +896,12 @@ PG.compras=function(el){
       const cid=uid();
       DB.compras.push({id:cid,productoId:pid,fecha:document.getElementById('cp-f').value,lbsCompradas:lbs,totalCosto:tot,costoLb,loteId:lid,costosAdicionales:ca});
       DB.lotes.push({id:uid(),compraId:cid,productoId:pid,loteId:lid,lbsCompradas:lbs,lbsDisponibles:lbs,costoLb,vencimiento:document.getElementById('cp-v').value||null,activo:true,fecha:document.getElementById('cp-f').value});
-      await saveDB();closeModal();render();toast('Compra registrada');checkAl();
+      saveDB();closeModal();render();toast('Compra registrada');checkAl();
     };
     window.delCmp=async function(id){
       if(!confirm('¿Eliminar compra y lote?'))return;
       DB.compras=DB.compras.filter(c=>c.id!==id);DB.lotes=DB.lotes.filter(l=>l.compraId!==id);
-      await saveDB();render();toast('Eliminado');
+      saveDB();render();toast('Eliminado');
     };
   };
 };
@@ -909,30 +910,69 @@ PG.compras=function(el){
 // CRÉDITOS
 // ============================================================
 PG.creditos=function(el){
-  const pend=DB.ventas.filter(v=>v.tipo==='credito'&&v.saldo>0);
-  const pag=DB.ventas.filter(v=>v.tipo==='credito'&&v.saldo<=0);
-  el.innerHTML=`
-  <div class="g3 sp">
-    <div class="metric warn"><div class="ml">Activos</div><div class="mv">${pend.length}</div></div>
-    <div class="metric bad"><div class="ml">Total pendiente</div><div class="mv">${fm$(pend.reduce((s,v)=>s+v.saldo,0))}</div></div>
-    <div class="metric good"><div class="ml">Pagados</div><div class="mv">${pag.length}</div></div>
-  </div>
-  <div class="card">
-    <div class="ch"><span class="ct">Créditos pendientes</span></div>
-    ${pend.length?`<div class="tw"><table>
-      <thead><tr><th>Cliente</th><th>Fecha</th><th>Total</th><th>Saldo</th><th>Vence</th><th>Abonos</th><th></th></tr></thead>
-      <tbody>${pend.map(v=>{
-        const dv=v.vencimientoCredito?dl(v.vencimientoCredito):null;
-        const abs=DB.abonos.filter(a=>a.ventaId===v.id);
-        return`<tr>
-          <td><strong>${v.clienteNombre}</strong></td><td>${v.fecha}</td>
-          <td>${fm$(v.total)}</td><td><span class="chip crd">${fm$(v.saldo)}</span></td>
-          <td>${dv!==null?`<span class="chip ${dv<0?'crd':dv<=7?'cam':'cbl'}">${v.vencimientoCredito}</span>`:'—'}</td>
-          <td><span class="chip cgr">${abs.length} / ${fm$(abs.reduce((s,a)=>s+a.monto,0))}</span></td>
-          <td><button class="btn bs bg" onclick="navigate('ventas');setTimeout(()=>abonar('${v.id}'),300)">💵 Abonar</button></td>
-        </tr>`;
-      }).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">✅</div><p>Sin créditos pendientes</p></div>`}
-  </div>`;
+  function render(){
+    const pend=DB.ventas.filter(v=>v.tipo==='credito'&&v.saldo>0);
+    const pag=DB.ventas.filter(v=>v.tipo==='credito'&&(v.saldo<=0||v.saldo===undefined));
+    el.innerHTML=`
+    <div class="g3 sp">
+      <div class="metric warn"><div class="ml">Activos</div><div class="mv">${pend.length}</div></div>
+      <div class="metric bad"><div class="ml">Total pendiente</div><div class="mv">${fm$(pend.reduce((s,v)=>s+v.saldo,0))}</div></div>
+      <div class="metric good"><div class="ml">Cancelados</div><div class="mv">${pag.length}</div></div>
+    </div>
+    <div class="card sp">
+      <div class="ch"><span class="ct">⏳ Créditos pendientes</span></div>
+      ${pend.length?`<div class="tw"><table>
+        <thead><tr><th>Cliente</th><th>Fecha</th><th>Total</th><th>Saldo</th><th>Vence</th><th>Abonos</th><th></th></tr></thead>
+        <tbody>${pend.map(v=>{
+          const dv=v.vencimientoCredito?dl(v.vencimientoCredito):null;
+          const abs=DB.abonos.filter(a=>a.ventaId===v.id);
+          return`<tr>
+            <td><strong>${v.clienteNombre}</strong></td><td>${v.fecha}</td>
+            <td>${fm$(v.total)}</td>
+            <td><span class="chip crd">${fm$(v.saldo)}</span></td>
+            <td>${dv!==null?`<span class="chip ${dv<0?'crd':dv<=7?'cam':'cbl'}">${v.vencimientoCredito}</span>`:'—'}</td>
+            <td><span class="chip cgr">${abs.length} abono(s) — ${fm$(abs.reduce((s,a)=>s+a.monto,0))}</span></td>
+            <td><button class="btn bs bg" onclick="abonarCredito('${v.id}')">💵 Abonar</button></td>
+          </tr>`;
+        }).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">✅</div><p>Sin créditos pendientes</p></div>`}
+    </div>
+    ${pag.length?`<div class="card">
+      <div class="ch"><span class="ct">✅ Créditos cancelados</span></div>
+      <div class="tw"><table>
+        <thead><tr><th>Cliente</th><th>Fecha venta</th><th>Total cobrado</th><th>Abonos</th><th>Estado</th></tr></thead>
+        <tbody>${pag.map(v=>{
+          const abs=DB.abonos.filter(a=>a.ventaId===v.id);
+          return`<tr>
+            <td><strong>${v.clienteNombre}</strong></td>
+            <td>${v.fecha}</td>
+            <td>${fm$(v.total)}</td>
+            <td><span class="chip cgn">${abs.length} abono(s) — ${fm$(abs.reduce((s,a)=>s+a.monto,0))}</span></td>
+            <td><span class="chip cgn">✓ Cancelado</span></td>
+          </tr>`;
+        }).join('')}</tbody></table></div>
+    </div>`:''}`;
+  }
+  render();
+
+  window.abonarCredito=function(vid){
+    const v=DB.ventas.find(x=>x.id===vid);if(!v)return;
+    openModal('Registrar Abono — '+v.clienteNombre,`
+      <div class="alert ai">Saldo pendiente: <strong>${fm$(v.saldo)}</strong> de un total de ${fm$(v.total)}</div>
+      <div class="fg"><label class="fl">Fecha del abono</label><input class="fc" id="abf" type="date" value="${td()}"></div>
+      <div class="fg"><label class="fl">Monto a abonar *</label><input class="fc" id="abm" type="number" step="0.01" min="0.01" max="${v.saldo}" placeholder="0.00"></div>
+      <div class="fg"><label class="fl">Notas</label><input class="fc" id="abn" placeholder="Opcional"></div>
+    `,`<button class="btn" onclick="closeModal()">Cancelar</button>
+       <button class="btn bg" onclick="(()=>{
+         const m=parseFloat(document.getElementById('abm').value)||0;
+         const vv=DB.ventas.find(x=>x.id==='${vid}');
+         if(!m||m<=0){toast('Ingrese un monto válido','err');return;}
+         if(m>vv.saldo+0.001){toast('El monto excede el saldo pendiente','err');return;}
+         DB.abonos.push({id:uid(),ventaId:'${vid}',fecha:document.getElementById('abf').value,monto:m,notas:document.getElementById('abn').value});
+         vv.saldo=Math.max(0,parseFloat((vv.saldo-m).toFixed(2)));
+         saveDB();closeModal();render();
+         toast(vv.saldo===0?'✅ Crédito cancelado completamente':'Abono registrado');
+       })()">Registrar abono</button>`);
+  };
 };
 
 // ============================================================
@@ -949,7 +989,7 @@ PG.proveedores=function(el){
         <td>${p.contacto||'—'}</td><td>${p.direccion||'—'}</td>
         <td><span class="chip cbl">${DB.productos.filter(x=>x.proveedorId===p.id).length}</span></td>
         <td><button class="btn bs" onclick="abrirPv('${p.id}')">✏</button>
-            <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.proveedores=DB.proveedores.filter(x=>x.id!=='${p.id}');await saveDB();navigate('proveedores');toast('Eliminado');})()">✕</button></td>
+            <button class="btn bs bd" onclick="(()=>{if(!confirm('¿Eliminar?'))return;DB.proveedores=DB.proveedores.filter(x=>x.id!=='${p.id}');saveDB();navigate('proveedores');toast('Eliminado');})()">✕</button></td>
       </tr>`).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">🏭</div><p>Sin proveedores</p></div>`}</div>`;
   }
   render();
@@ -963,14 +1003,14 @@ PG.proveedores=function(el){
       </div>
       <div class="fg"><label class="fl">Dirección</label><input class="fc" id="pv-d" value="${p.direccion||''}"></div>
     `,`<button class="btn" onclick="closeModal()">Cancelar</button>
-       <button class="btn bp" onclick="(async()=>{
+       <button class="btn bp" onclick="(()=>{
          const n=document.getElementById('pv-n').value.trim();
          const c=document.getElementById('pv-c').value.trim().toUpperCase();
          if(!n||!c){toast('Nombre y código requeridos','err');return;}
          const d={nombre:n,codigo:c,contacto:document.getElementById('pv-k').value.trim(),direccion:document.getElementById('pv-d').value.trim()};
          if(id){const i=DB.proveedores.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.proveedores[i],d);}
          else DB.proveedores.push({id:uid(),...d});
-         await saveDB();closeModal();render();toast('Proveedor guardado');
+         saveDB();closeModal();render();toast('Proveedor guardado');
        })()">Guardar</button>`);
   };
 };
@@ -994,7 +1034,7 @@ PG.productos=function(el){
           <td style="color:var(--green);font-weight:600">${fm$(p.precioVenta)}</td>
           <td><strong>${fm(s,1)}</strong> lbs ${s>0&&s<5?'<span class="chip cam">bajo</span>':''}</td>
           <td><button class="btn bs" onclick="abrirPd('${p.id}')">✏</button>
-              <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.productos=DB.productos.filter(x=>x.id!=='${p.id}');await saveDB();navigate('productos');toast('Eliminado');})()">✕</button></td>
+              <button class="btn bs bd" onclick="(()=>{if(!confirm('¿Eliminar?'))return;DB.productos=DB.productos.filter(x=>x.id!=='${p.id}');saveDB();navigate('productos');toast('Eliminado');})()">✕</button></td>
         </tr>`;
       }).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">🐟</div><p>Sin productos</p></div>`}</div>`;
   }
@@ -1016,7 +1056,7 @@ PG.productos=function(el){
       </div>
       <div class="fg"><label class="fl">Código (editable)</label><input class="fc" id="pd-c" value="${p.codigo||''}" placeholder="Auto-generado"></div>
     `,`<button class="btn" onclick="closeModal()">Cancelar</button>
-       <button class="btn bp" onclick="(async()=>{
+       <button class="btn bp" onclick="(()=>{
          const pvId=document.getElementById('pd-pv').value;
          const n=document.getElementById('pd-n').value.trim();
          if(!pvId||!n){toast('Proveedor y nombre requeridos','err');return;}
@@ -1025,7 +1065,7 @@ PG.productos=function(el){
          const d={proveedorId:pvId,nombre:n,codigo:c,tipoMarisco:document.getElementById('pd-t').value,precioVenta:parseFloat(document.getElementById('pd-pv2').value)||0};
          if(id){const i=DB.productos.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.productos[i],d);}
          else DB.productos.push({id:uid(),...d});
-         await saveDB();closeModal();render();toast('Producto guardado');
+         saveDB();closeModal();render();toast('Producto guardado');
        })()">Guardar</button>`);
     window.pvNom=function(){
       const pvId=document.getElementById('pd-pv')?.value;
@@ -1057,7 +1097,7 @@ PG.clientes=function(el){
         <td>${c.contacto||'—'}</td><td>${c.descuento?'-'+c.descuento+'%':'Estándar'}</td>
         <td><span class="chip ctl">${DB.ventas.filter(v=>v.clienteId===c.id).length}</span></td>
         <td><button class="btn bs" onclick="abrirCl('${c.id}')">✏</button>
-            <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.clientes=DB.clientes.filter(x=>x.id!=='${c.id}');await saveDB();navigate('clientes');toast('Eliminado');})()">✕</button></td>
+            <button class="btn bs bd" onclick="(()=>{if(!confirm('¿Eliminar?'))return;DB.clientes=DB.clientes.filter(x=>x.id!=='${c.id}');saveDB();navigate('clientes');toast('Eliminado');})()">✕</button></td>
       </tr>`).join('')}</tbody></table></div>`:`<div class="empty"><div class="ic2">👥</div><p>Sin clientes</p></div>`}</div>`;
   }
   render();
@@ -1075,13 +1115,13 @@ PG.clientes=function(el){
       <div class="fg"><label class="fl">Contacto</label><input class="fc" id="cl-c" value="${c.contacto||''}"></div>
       <div class="fg"><label class="fl">Dirección</label><input class="fc" id="cl-r" value="${c.direccion||''}"></div>
     `,`<button class="btn" onclick="closeModal()">Cancelar</button>
-       <button class="btn bp" onclick="(async()=>{
+       <button class="btn bp" onclick="(()=>{
          const n=document.getElementById('cl-n').value.trim();
          if(!n){toast('Nombre requerido','err');return;}
          const d={nombre:n,tipo:document.getElementById('cl-t').value,descuento:parseFloat(document.getElementById('cl-d').value)||0,contacto:document.getElementById('cl-c').value.trim(),direccion:document.getElementById('cl-r').value.trim()};
          if(id){const i=DB.clientes.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.clientes[i],d);}
          else DB.clientes.push({id:uid(),...d});
-         await saveDB();closeModal();render();toast('Cliente guardado');
+         saveDB();closeModal();render();toast('Cliente guardado');
        })()">Guardar</button>`);
   };
 };
@@ -1101,7 +1141,7 @@ PG.usuarios=function(el){
         <td><strong>${u.nombre}</strong></td><td><code>${u.usuario}</code></td>
         <td><span class="chip ${u.rol==='admin'?'cbl':'ctl'}">${u.rol==='admin'?'Administrador':'Vendedor'}</span></td>
         <td>${u.id!=='admin'?`<button class="btn bs" onclick="abrirUs('${u.id}')">✏</button>
-            <button class="btn bs bd" onclick="(async()=>{if(!confirm('¿Eliminar?'))return;DB.usuarios=DB.usuarios.filter(x=>x.id!=='${u.id}');await saveDB();render();toast('Eliminado');})()">✕</button>`
+            <button class="btn bs bd" onclick="(()=>{if(!confirm('¿Eliminar?'))return;DB.usuarios=DB.usuarios.filter(x=>x.id!=='${u.id}');saveDB();render();toast('Eliminado');})()">✕</button>`
             :'<span style="font-size:11px;color:var(--text-muted)">Admin principal</span>'}</td>
       </tr>`).join('')}
       </tbody></table></div></div>
@@ -1138,7 +1178,7 @@ PG.usuarios=function(el){
         <option value="vendedor" ${u.rol==='vendedor'?'selected':''}>Vendedor</option>
       </select></div>
     `,`<button class="btn" onclick="closeModal()">Cancelar</button>
-       <button class="btn bp" onclick="(async()=>{
+       <button class="btn bp" onclick="(()=>{
          const n=document.getElementById('us-n').value.trim();
          const usr=document.getElementById('us-u').value.trim();
          const pass=document.getElementById('us-p').value;
@@ -1149,7 +1189,7 @@ PG.usuarios=function(el){
          if(pass)d.pass=await sha256(pass);
          if(id){const i=DB.usuarios.findIndex(x=>x.id==='${id}');if(i>=0)Object.assign(DB.usuarios[i],d);}
          else DB.usuarios.push({id:uid(),...d});
-         await saveDB();closeModal();render();toast('Usuario guardado');
+         saveDB();closeModal();render();toast('Usuario guardado');
        })()">Guardar</button>`);
   };
 };
